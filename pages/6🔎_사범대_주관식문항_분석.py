@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 # =========================================
 st.set_page_config(page_title="Education E-items (E1–E4)", layout="wide")
 
-CSV_URL_EDU = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/Edu-essay123.csv"
+CSV_URL_EDU = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/Edu-essay-124.csv"
 
 # =========================
 # Columns (actual CSV)
