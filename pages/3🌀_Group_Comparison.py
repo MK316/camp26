@@ -1,7 +1,9 @@
 import pandas as pd
 import streamlit as st
-import numpy as np
+
+import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
 
 
 CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12.csv"
@@ -143,15 +145,13 @@ with tab1:
         title=f"{ITEM_LABELS[x_item]} vs {ITEM_LABELS[y_item]} (색상: {group_col})"
     )
     
-    # ✅ statsmodels 없이 회귀선(선형 추세선) 직접 추가
+    # statsmodels 없이 추세선(전체) 추가
     if show_trend:
-        # 전체 데이터 기준 단순 선형회귀 y = a*x + b
         tmp = sub[[x_item, y_item]].dropna()
         if len(tmp) >= 2:
             x = tmp[x_item].to_numpy()
             y = tmp[y_item].to_numpy()
             a, b = np.polyfit(x, y, 1)
-    
             x_line = np.linspace(x.min(), x.max(), 50)
             y_line = a * x_line + b
     
@@ -160,11 +160,12 @@ with tab1:
                     x=x_line,
                     y=y_line,
                     mode="lines",
-                    name="추세선(전체)",
+                    name="추세선(전체)"
                 )
             )
     
     st.plotly_chart(fig, use_container_width=True)
+
 
 
 with tab2:
