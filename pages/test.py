@@ -57,13 +57,23 @@ def single_choice_summary(df: pd.DataFrame, col: str, option_order: list[str]) -
     s = df[col].dropna().astype(str).str.strip()
     s = s[(s != "") & (s.str.lower() != "nan")]
 
+    # ✅ 옵션과 정확히 일치하지 않는 값 처리
+    allowed = set(option_order)
+    s = s.apply(lambda x: x if x in allowed else "기타(비정규)")
+
     valid_n = int(len(s))
     if valid_n == 0:
         out0 = pd.DataFrame({"보기": option_order, "빈도": 0, "비율(%)": 0.0})
         return out0, 0
 
     counts = s.value_counts()
-    out = pd.DataFrame({"보기": option_order})
+
+    # ✅ option_order에 "기타(비정규)"를 뒤에 붙여서 항상 동일 색/순서 유지
+    full_order = option_order.copy()
+    if "기타(비정규)" in counts.index and "기타(비정규)" not in full_order:
+        full_order.append("기타(비정규)")
+
+    out = pd.DataFrame({"보기": full_order})
     out["빈도"] = out["보기"].map(counts).fillna(0).astype(int)
     out["비율(%)"] = (out["빈도"] / valid_n * 100).round(2)
     return out, valid_n
@@ -106,8 +116,10 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
         text="비율(%)",
         color="보기",
         color_discrete_map=color_map,
+        category_orders={"보기": option_order + (["기타(비정규)"] if "기타(비정규)" in plot_df["보기"].values else [])},
         title=f"{label} 응답 분포(%)"
     )
+
     fig_bar.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
     fig_bar.update_layout(
         height=520,
@@ -134,8 +146,10 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
         values="빈도",
         color="보기",
         color_discrete_map=color_map,
+        category_orders={"보기": pie_df["보기"].tolist()},  # 현재 pie_df 순서를 고정
         title=f"{label} 응답 비중(빈도 기준)"
     )
+
 
     fig_pie.update_traces(
         hole=0.25,
