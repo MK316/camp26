@@ -315,8 +315,7 @@ with tab4:
     # ---------------------------
     STOP = {
         "그리고","하지만","또한","그래서","때문","정도","같아요","합니다","했다","하는","에서","으로","에게",
-        "것","수","등","좀","더","제","저","우리","너무","정말","있다","없다","이다","되다",
-        "the","and","to","of","in","is","are","a","an","for","on","with","as","be"
+        "것","수","등","좀","더","제","저","우리","너무","정말","있다","없다","이다","되다"
     }
 
     def tokenize_ko_basic(text: str) -> list[str]:
@@ -392,4 +391,163 @@ with tab4:
     tmp_df = tmp_df[(tmp_df["__open__"] != "") & (~tmp_df["__open__"].map(is_no_response))]
 
     # 너무 작은 그룹은 제외 옵션
-    min_n = st.slider("그룹 최소 응답 수",_
+    min_n = st.slider("그룹 최소 응답 수", 1, 30, 5, key="b4_min_group_n")
+
+    grp_counts = tmp_df.groupby(group_col)["__open__"].count().reset_index(name="N")
+    valid_groups = grp_counts[grp_counts["N"] >= min_n][group_col].astype(str).tolist()
+
+    if len(valid_groups) == 0:
+        st.info("현재 조건에서 최소 응답 수 기준을 만족하는 그룹이 없습니다. (그룹 최소 응답 수를 낮춰보세요.)")
+    else:
+        show_groups = st.multiselect(
+            "표시할 그룹 선택",
+            valid_groups,
+            default=valid_groups[: min(6, len(valid_groups))],
+            key="b4_groups_pick"
+        )
+        per_top = st.slider("그룹별 Top 키워드 수", 5, 30, 10, 1, key="b4_per_top")
+
+        rows = []
+        for gname in show_groups:
+            sub = tmp_df[tmp_df[group_col].astype(str) == str(gname)]["__open__"].tolist()
+            toks = [t for text in sub for t in tokenize_ko_basic(text)]
+            if not toks:
+                continue
+            c = Counter(toks).most_common(per_top)
+            for kw, ct in c:
+                rows.append({"Group": str(gname), "keyword": kw, "count": ct})
+
+        if len(rows) == 0:
+            st.info("선택한 그룹에서 추출된 키워드가 없습니다.")
+        else:
+            gkw = pd.DataFrame(rows)
+
+            fig_gkw = px.bar(
+                gkw,
+                x="count",
+                y="keyword",
+                color="Group",
+                orientation="h",
+                title=f"{group_col}별 상위 키워드 비교 (Top {per_top})"
+            )
+            fig_gkw.update_layout(height=650, margin=dict(l=20, r=20, t=60, b=20),
+                                  xaxis_title="빈도", yaxis_title="키워드")
+            st.plotly_chart(fig_gkw, use_container_width=True)
+
+            # 표는 그룹/키워드로 피벗도 가능
+            st.dataframe(gkw.sort_values(["Group", "count"], ascending=[True, False]),
+                         use_container_width=True, hide_index=True)
+
+    # ---------------------------
+    # (E) 키워드 공동출현 네트워크 (Co-occurrence Network)
+    # ---------------------------
+    st.subheader("🕸️ 키워드 공동출현 네트워크")
+    st.caption("한 응답 안에서 함께 등장한 키워드 쌍을 연결합니다. (빈도 높은 키워드 중심)")
+
+    net_top = st.slider("네트워크에 포함할 상위 키워드 수", 10, 80, 30, 5, key="b4_net_top")
+    min_edge = st.slider("엣지 최소 공동출현 횟수", 1, 20, 2, 1, key="b4_net_min_edge")
+
+    if len(all_tokens) == 0:
+        st.info("네트워크를 만들 토큰이 없습니다.")
+    else:
+        top_vocab = [k for k, _ in Counter(all_tokens).most_common(net_top)]
+        vocab_set = set(top_vocab)
+
+        # co-occurrence 카운트
+        pair_counter = Counter()
+        for toks in doc_tokens:
+            # 문서 내 중복 제거 + vocab 제한
+            uniq = [t for t in set(toks) if t in vocab_set]
+            uniq.sort()
+            for i in range(len(uniq)):
+                for j in range(i + 1, len(uniq)):
+                    pair_counter[(uniq[i], uniq[j])] += 1
+
+        edges = [(a, b, w) for (a, b), w in pair_counter.items() if w >= min_edge]
+
+        if len(edges) == 0:
+            st.info("현재 설정(min_edge 등)에서 네트워크 엣지가 없습니다. 엣지 최소 공동출현 횟수를 낮춰보세요.")
+        else:
+            # 노드 가중치(빈도)
+            node_w = {k: Counter(all_tokens)[k] for k in top_vocab}
+
+            # 간단 레이아웃: 원형 배치(추가 라이브러리 없이 안정적)
+            n = len(top_vocab)
+            angles = np.linspace(0, 2*np.pi, n, endpoint=False)
+            pos = {top_vocab[i]: (np.cos(angles[i]), np.sin(angles[i])) for i in range(n)}
+
+            # 엣지 trace
+            edge_x, edge_y = [], []
+            edge_text = []
+            for a, b, w in edges:
+                x0, y0 = pos[a]
+                x1, y1 = pos[b]
+                edge_x += [x0, x1, None]
+                edge_y += [y0, y1, None]
+                edge_text.append(f"{a} – {b}: {w}")
+
+            edge_trace = go.Scatter(
+                x=edge_x, y=edge_y,
+                mode="lines",
+                hoverinfo="none",
+                line=dict(width=1),
+                name="co-occurrence"
+            )
+
+            # 노드 trace
+            node_x = [pos[k][0] for k in top_vocab]
+            node_y = [pos[k][1] for k in top_vocab]
+            node_size = [max(10, min(40, node_w[k])) for k in top_vocab]  # 너무 커지지 않게
+            node_text = [f"{k} (freq={node_w[k]})" for k in top_vocab]
+
+            node_trace = go.Scatter(
+                x=node_x, y=node_y,
+                mode="markers+text",
+                text=top_vocab,
+                textposition="top center",
+                hovertext=node_text,
+                hoverinfo="text",
+                marker=dict(size=node_size),
+                name="keywords"
+            )
+
+            fig_net = go.Figure(data=[edge_trace, node_trace])
+            fig_net.update_layout(
+                title="키워드 공동출현 네트워크 (원형 배치)",
+                showlegend=False,
+                height=700,
+                margin=dict(l=10, r=10, t=60, b=10),
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False)
+            )
+            st.plotly_chart(fig_net, use_container_width=True)
+
+            # 엣지 리스트도 표로 제공
+            edge_df = pd.DataFrame(edges, columns=["keyword_a", "keyword_b", "cooccur"])
+            edge_df = edge_df.sort_values("cooccur", ascending=False).head(200)
+            st.subheader("공동출현 상위 엣지(Top 200)")
+            st.dataframe(edge_df, use_container_width=True, hide_index=True)
+
+    # ---------------------------
+    # (F) 워드클라우드 (가능하면)
+    # ---------------------------
+    st.subheader("☁️ 워드클라우드 (가능한 경우)")
+    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. (Streamlit Cloud 기본환경에서는 없을 수 있어요.)")
+
+    try:
+        from wordcloud import WordCloud
+        import matplotlib.pyplot as plt
+
+        if len(all_tokens) == 0:
+            st.info("워드클라우드를 만들 토큰이 없습니다.")
+        else:
+            wc_text = " ".join(all_tokens)
+            wc = WordCloud(width=1200, height=600, background_color="white").generate(wc_text)
+
+            fig, ax = plt.subplots(figsize=(12, 6))
+            ax.imshow(wc, interpolation="bilinear")
+            ax.axis("off")
+            st.pyplot(fig, clear_figure=True)
+
+    except Exception:
+        st.info("현재 실행 환경에는 wordcloud가 없어서 워드클라우드를 표시할 수 없습니다. (키워드 막대그래프/네트워크는 정상 제공)")
