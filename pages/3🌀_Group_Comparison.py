@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
-import plotly.express as px
+import numpy as np
+import plotly.graph_objects as go
+
 
 CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12.csv"
 
@@ -125,13 +127,13 @@ with tab1:
 
     # 산점도: 그룹별 색상 + 추세선
     st.markdown("##### 산점도 (그룹별 비교)")
+    # 산점도(그룹별 색상)
     fig = px.scatter(
         sub,
         x=x_item,
         y=y_item,
         color=group_col,
         opacity=0.75,
-        trendline="ols" if show_trend else None,
         hover_data={group_col: True, x_item: True, y_item: True},
         labels={
             x_item: ITEM_LABELS[x_item],
@@ -140,10 +142,30 @@ with tab1:
         },
         title=f"{ITEM_LABELS[x_item]} vs {ITEM_LABELS[y_item]} (색상: {group_col})"
     )
-    fig.update_layout(margin=dict(l=20, r=20, t=60, b=20))
+    
+    # ✅ statsmodels 없이 회귀선(선형 추세선) 직접 추가
+    if show_trend:
+        # 전체 데이터 기준 단순 선형회귀 y = a*x + b
+        tmp = sub[[x_item, y_item]].dropna()
+        if len(tmp) >= 2:
+            x = tmp[x_item].to_numpy()
+            y = tmp[y_item].to_numpy()
+            a, b = np.polyfit(x, y, 1)
+    
+            x_line = np.linspace(x.min(), x.max(), 50)
+            y_line = a * x_line + b
+    
+            fig.add_trace(
+                go.Scatter(
+                    x=x_line,
+                    y=y_line,
+                    mode="lines",
+                    name="추세선(전체)",
+                )
+            )
+    
     st.plotly_chart(fig, use_container_width=True)
 
-    st.caption("※ 상관은 ‘함께 증가/감소하는 경향’을 보여주며, 인과관계를 의미하지는 않습니다.")
 
 with tab2:
     if not show_hist:
