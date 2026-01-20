@@ -170,19 +170,17 @@ with tab1:
 
 
 with tab2:
-    if not show_hist:
-        st.info("사이드바에서 '전체 문항 상관 히트맵 보기'를 체크하면 표시됩니다.")
-    else:
-        st.subheader("전체 문항 상관 히트맵 (Q01–Q12)")
+    st.subheader("전체 문항 상관 히트맵 (Q01–Q12)")
 
-        corr = fdf[LIKERT_ITEMS].corr().round(3)
-        corr_named = corr.rename(index=ITEM_LABELS, columns=ITEM_LABELS)
+    corr = fdf[LIKERT_ITEMS].corr().round(3)
+    corr_named = corr.rename(index=ITEM_LABELS, columns=ITEM_LABELS)
 
-        fig2 = px.imshow(
-            corr_named,
-            text_auto=True,
-            aspect="auto",
-            title="문항 간 상관계수 (Pearson r)"
-        )
-        fig2.update_layout(margin=dict(l=20, r=20, t=60, b=20))
-        st.plotly_chart(fig2, use_container_width=True)
+    fig2 = px.imshow(
+        corr_named,
+        text_auto=True,
+        aspect="auto",
+        title="문항 간 상관계수 (Pearson r)"
+    )
+    fig2.update_layout(margin=dict(l=20, r=20, t=60, b=20))
+    st.plotly_chart(fig2, use_container_width=True)
+
