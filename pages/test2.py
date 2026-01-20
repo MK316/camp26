@@ -5,6 +5,7 @@ import plotly.express as px
 import numpy as np
 import plotly.graph_objects as go
 from collections import Counter
+import os
 
 # =========================
 # ECS: B-items (Multi-select + Open-ended)
@@ -98,7 +99,19 @@ def load_data(url: str) -> pd.DataFrame:
             df[c] = df[c].astype(str).str.strip()
 
     return df
-
+    
+def get_korean_font_path() -> str | None:
+    candidates = [
+        "assets/NanumGothic.ttf",
+        "assets/NanumSquareRoundB.ttf",
+        "assets/Pretendard-Regular.ttf",
+        "assets/PretendardVariable.ttf",
+        "assets/AppleSDGothicNeo.ttf",
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return None
 
 def clean_text(s: str) -> str:
     if not isinstance(s, str):
@@ -532,22 +545,31 @@ with tab4:
     # (F) 워드클라우드 (가능하면)
     # ---------------------------
     st.subheader("☁️ 워드클라우드 (가능한 경우)")
-    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. (Streamlit Cloud 기본환경에서는 없을 수 있어요.)")
-
+    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. 한글은 폰트 파일이 있어야 정상 표시됩니다.")
+    
     try:
         from wordcloud import WordCloud
         import matplotlib.pyplot as plt
-
-        if len(all_tokens) == 0:
-            st.info("워드클라우드를 만들 토큰이 없습니다.")
+    
+        font_path = get_korean_font_path()
+    
+        if font_path is None:
+            st.warning("assets 폴더에서 한글 폰트(ttf)를 찾지 못했습니다. 폰트 파일명을 확인해주세요.")
         else:
-            wc_text = " ".join(all_tokens)
-            wc = WordCloud(width=1200, height=600, background_color="white").generate(wc_text)
-
-            fig, ax = plt.subplots(figsize=(12, 6))
+            freq_dict = dict(zip(freq["keyword"], freq["count"]))
+    
+            wc = WordCloud(
+                font_path=font_path,
+                width=1400,
+                height=600,
+                background_color="white"
+            ).generate_from_frequencies(freq_dict)
+    
+            fig, ax = plt.subplots(figsize=(14, 6))
             ax.imshow(wc, interpolation="bilinear")
             ax.axis("off")
             st.pyplot(fig, clear_figure=True)
+    
+    except ModuleNotFoundError:
+        st.info("wordcloud 패키지가 없어 워드클라우드를 표시할 수 없습니다. requirements.txt에 wordcloud를 추가하면 됩니다.")
 
-    except Exception:
-        st.info("현재 실행 환경에는 wordcloud가 없어서 워드클라우드를 표시할 수 없습니다. (키워드 막대그래프/네트워크는 정상 제공)")
