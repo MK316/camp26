@@ -3,11 +3,28 @@ import streamlit as st
 
 CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12.csv"
 
+# 원본 리커트 문항 컬럼명
 LIKERT_ITEMS = [
     "Q01_GenC","Q02_UndA","Q03_UseA","Q04_SolP","Q05_PedU","Q06_GroB",
     "Q07_IntL","Q08_EmoB","Q09_NeedS","Q10_ValU","Q11_UrgE","Q12_ManI"
 ]
 META_COLS = ["Field_Group", "Academic_Field", "Year_Level", "Year_Original"]
+
+# 화면 표시용 문항 이름 매핑
+ITEM_LABELS = {
+    "Q01_GenC": "Q01 전반적 인식",
+    "Q02_UndA": "Q02 이해 능력",
+    "Q03_UseA": "Q03 활용 능력",
+    "Q04_SolP": "Q04 문제 해결",
+    "Q05_PedU": "Q05 교육적 활용",
+    "Q06_GroB": "Q06 성장 인식",
+    "Q07_IntL": "Q07 학습 의향",
+    "Q08_EmoB": "Q08 정서적 부담감",
+    "Q09_NeedS": "Q09 지원 필요",
+    "Q10_ValU": "Q10 가치 인식",
+    "Q11_UrgE": "Q11 AI 교육의 시급성",
+    "Q12_ManI": "Q12 AI 교육의 제도화",
+}
 
 @st.cache_data(show_spinner=False)
 def load_data(url: str) -> pd.DataFrame:
@@ -63,16 +80,27 @@ col1.metric("표본 수 (N)", f"{len(fdf):,}")
 col2.metric("선택 Field_Group", f"{len(fg):,}")
 col3.metric("선택 Academic_Field", f"{len(af):,}")
 
-st.subheader("데이터 미리보기 (Data Preview)")
-st.dataframe(fdf.head(30), use_container_width=True)
+st.subheader("문항 안내 (Item Guide)")
+guide_df = pd.DataFrame({
+    "코드 (Code)": LIKERT_ITEMS,
+    "문항명 (Korean Label)": [ITEM_LABELS[c] for c in LIKERT_ITEMS]
+})
+st.dataframe(guide_df, use_container_width=True, hide_index=True)
 
-# 결측 관련: 표 없이 캡션만
+st.subheader("데이터 미리보기 (Data Preview)")
+# 미리보기에서도 문항명 보기 좋게 rename
+preview_cols = META_COLS + LIKERT_ITEMS
+preview_df = fdf[preview_cols].rename(columns=ITEM_LABELS)
+st.dataframe(preview_df.head(30), use_container_width=True)
+
 st.caption("결측치(Missing)는 없다고 가정하고 분석을 진행합니다.")
 
-# 기술통계 표 (결측 표 자리 대체)
 st.subheader("기술통계 (Descriptive Statistics)")
 desc = fdf[LIKERT_ITEMS].describe().T
 desc = desc.rename(columns={"50%": "median"})
 desc_out = desc[["count","mean","std","min","median","max"]].round(3)
 desc_out.columns = ["N", "Mean", "SD", "Min", "Median", "Max"]
+
+# 기술통계 표에서도 문항명 rename
+desc_out = desc_out.rename(index=ITEM_LABELS)
 st.dataframe(desc_out, use_container_width=True)
