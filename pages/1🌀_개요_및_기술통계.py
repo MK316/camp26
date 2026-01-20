@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12_0121.csv"
+CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12_0121_120.csv"
 
 # 원본 리커트 문항 컬럼명
 LIKERT_ITEMS = [
