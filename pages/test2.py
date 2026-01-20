@@ -459,6 +459,7 @@ with tab4:
 
     net_top = st.slider("네트워크에 포함할 상위 키워드 수", 10, 80, 30, 5, key="b4_net_top")
     min_edge = st.slider("엣지 최소 공동출현 횟수", 1, 20, 2, 1, key="b4_net_min_edge")
+    font_path = "assets/NanumGothic-Regular.ttf"
 
     if len(all_tokens) == 0:
         st.info("네트워크를 만들 토큰이 없습니다.")
@@ -545,31 +546,34 @@ with tab4:
     # (F) 워드클라우드 (가능하면)
     # ---------------------------
     st.subheader("☁️ 워드클라우드 (가능한 경우)")
-    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. 한글은 폰트 파일이 있어야 정상 표시됩니다.")
+    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. 한글 폰트도 필요합니다.")
     
     try:
         from wordcloud import WordCloud
         import matplotlib.pyplot as plt
     
-        font_path = get_korean_font_path()
+        # 🎯 레포 assets 폴더의 폰트 경로
+        font_path = "assets/NanumGothic-Regular.ttf"
     
-        if font_path is None:
-            st.warning("assets 폴더에서 한글 폰트(ttf)를 찾지 못했습니다. 폰트 파일명을 확인해주세요.")
-        else:
-            freq_dict = dict(zip(freq["keyword"], freq["count"]))
+        # 워드클라우드를 만들 키워드 dict
+        freq_dict = dict(zip(freq["keyword"], freq["count"]))
     
-            wc = WordCloud(
-                font_path=font_path,
-                width=1400,
-                height=600,
-                background_color="white"
-            ).generate_from_frequencies(freq_dict)
+        wc = WordCloud(
+            font_path=font_path,
+            width=1400,
+            height=600,
+            background_color="white",
+            prefer_horizontal=0.9
+        ).generate_from_frequencies(freq_dict)
     
-            fig, ax = plt.subplots(figsize=(14, 6))
-            ax.imshow(wc, interpolation="bilinear")
-            ax.axis("off")
-            st.pyplot(fig, clear_figure=True)
+        fig, ax = plt.subplots(figsize=(14, 6))
+        ax.imshow(wc, interpolation="bilinear")
+        ax.axis("off")
+        st.pyplot(fig, clear_figure=True)
     
     except ModuleNotFoundError:
         st.info("wordcloud 패키지가 없어 워드클라우드를 표시할 수 없습니다. requirements.txt에 wordcloud를 추가하면 됩니다.")
+    except FileNotFoundError:
+        st.error("폰트 파일을 찾을 수 없습니다. assets/NanumGothic-Regular.ttf 경로를 확인하세요.")
+
 
