@@ -1,292 +1,279 @@
+import re
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+# =========================
+# ECS: B-items (Multi-select + Open-ended)
+# =========================
+st.set_page_config(page_title="ECS B-items", layout="wide")
 
-CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12_01206PM3.csv"
+# ✅ 여기에 실제 CSV raw URL을 넣으세요
+CSV_URL_B = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/IT-essay-116.csv"
 
-LIKERT_ITEMS = [
-    "Q01_GenC","Q02_UndA","Q03_UseA","Q04_SolP","Q05_PedU","Q06_GroB",
-    "Q07_IntL","Q08_EmoB","Q09_NeedS","Q10_ValU","Q11_UrgE","Q12_ManI"
+# ✅ 실제 컬럼명(사용자 제공 이미지 기준)
+META_COLS = ["Field_Group", "Year_Level"]
+
+COL_B1 = "B1. [교육과정·정책 개선 요구]"
+COL_B1_OTHER = "B1-기타"
+
+COL_B2 = "B2. [정서적 부담감의 원인]"
+COL_B2_OTHER = "B2-기타"
+
+COL_B3 = "B3. [학습 내용 선호]"
+COL_B3_OTHER = "B3-기타"       # CSV가 B3-기타면 이걸 쓰세요
+COL_B3_OTHER2 = "B2-기타2"     # CSV가 B2-기타2로 되어 있으면 이걸 쓰세요 (둘 중 존재하는 것 자동 선택)
+
+COL_B4 = "B4. [대학에 요구사항]"
+
+B_MULTI = [COL_B1, COL_B2, COL_B3]
+B_OPEN = COL_B4
+
+# ✅ 화면에 표시할 때는 [ ] 키워드 중심으로만
+B_KEYWORDS = {
+    COL_B1: "[교육과정·정책 개선 요구]",
+    COL_B2: "[정서적 부담감의 원인]",
+    COL_B3: "[학습 내용 선호]",
+    COL_B4: "[대학에 요구사항]",
+}
+
+# =========================
+# ✅ 설문 옵션 목록(고정) - 순서 유지
+# =========================
+B1_OPTIONS = [
+    "기초 수준의 단계별 교육 제공",
+    "실습 중심의 수업 확대",
+    "전공 및 교과와 연계된 활용 사례 제시",
+    "평가 부담이 낮은 수업 설계",
+    "정규 교과 내 필수 또는 선택 과목 개설",
+    "기타",
 ]
 
-ITEM_LABELS = {
-    "Q01_GenC": "Q01 전반적 인식",
-    "Q02_UndA": "Q02 이해 능력",
-    "Q03_UseA": "Q03 활용 능력",
-    "Q04_SolP": "Q04 문제 해결",
-    "Q05_PedU": "Q05 교육적 활용",
-    "Q06_GroB": "Q06 성장 인식",
-    "Q07_IntL": "Q07 학습 의향",
-    "Q08_EmoB": "Q08 정서적 부담감",
-    "Q09_NeedS": "Q09 지원 필요",
-    "Q10_ValU": "Q10 가치 인식",
-    "Q11_UrgE": "Q11 AI 교육의 시급성",
-    "Q12_ManI": "Q12 AI 교육의 제도화",
+B2_OPTIONS = [
+    "기초 지식이나 사전 경험의 부족",
+    "전문 용어나 기술적 내용(예: 코딩)에 대한 두려움",
+    "학습 속도를 따라가기 어렵다는 우려",
+    "일자리와 직접 관련되지 않는 수업이라는 우려",
+    "디지털·AI 학습의 필요성에 대한 확신 부족",
+    "기타",
+]
+
+B3_OPTIONS = [
+    "디지털·AI의 기초 개념과 작동 원리",
+    "코딩 및 앱 개발",
+    "AI 도구 활용 방법",
+    "수업 설계 및 교육적 활용 방법",
+    "AI 윤리 및 책임 있는 활용",
+    "현장 엔지니어(공학자)와의 교류",
+    "기타",
+]
+
+OPTIONS_MAP = {
+    COL_B1: B1_OPTIONS,
+    COL_B2: B2_OPTIONS,
+    COL_B3: B3_OPTIONS,
 }
 
-FIELD_GROUP_LABELS = {
-    "ECS": "공대-컴퓨터 (ECS)",
-    "Hum": "인문 (Humanities)",
-    "Edu": "사범 (Education)"
-}
-
-
-GROUP_COLS = ["Field_Group", "Year_Level", "Academic_Field"]
-
+# =========================
+# Load & helpers
+# =========================
 @st.cache_data(show_spinner=False)
 def load_data(url: str) -> pd.DataFrame:
-    df = pd.read_csv(url)
-    for c in GROUP_COLS:
+    # ✅ 한글 인코딩 안전하게 읽기
+    try:
+        df = pd.read_csv(url, encoding="utf-8")
+    except UnicodeDecodeError:
+        df = pd.read_csv(url, encoding="cp949")
+
+    # 문자열 컬럼 정리
+    for c in META_COLS:
         if c in df.columns:
             df[c] = df[c].astype(str).str.strip()
-    for c in LIKERT_ITEMS:
+
+    # 모든 B문항은 문자열로 정리
+    for c in [COL_B1, COL_B1_OTHER, COL_B2, COL_B2_OTHER, COL_B3, COL_B3_OTHER, COL_B3_OTHER2, COL_B4]:
         if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
+            df[c] = df[c].astype(str).str.strip()
+
     return df
 
-def likert_counts(series: pd.Series) -> pd.DataFrame:
-    s = series.dropna()
-    counts = s.value_counts().reindex([1, 2, 3, 4, 5, 6], fill_value=0)
-    dfc = counts.reset_index()
-    dfc.columns = ["likert", "count"]
-    total = dfc["count"].sum()
-    dfc["percent"] = (dfc["count"] / total * 100).round(2) if total > 0 else 0
-    return dfc
 
-st.markdown("#### 2. 문항별 응답 분포 (Item Distributions)")
-st.caption("📌 왼쪽 메뉴에 선택 필터를 조정하세요. (영역별, 항목별, 학과별, 등등 가능)")
-df = load_data(CSV_URL)
+def clean_text(s: str) -> str:
+    if not isinstance(s, str):
+        return ""
+    return re.sub(r"\s+", " ", s).strip()
 
-# ---- Sidebar filters ----
-# ---- Sidebar filters ----
-with st.sidebar:
-    st.header("필터 (Filters)")
+def is_no_response(text: str) -> bool:
+    t = clean_text(str(text)).lower()
+    if t in {"", "nan", "none"}:
+        return True
+    t = re.sub(r"\s+", " ", t).strip()
+    return t in {"no response", "noresponse", "n/a", "na"}
 
-    # (선택) 필터 전체를 접을 수 있게
-    with st.expander("필터 펼치기/접기", expanded=False):
+def split_multiselect(text: str) -> list[str]:
+    """
+    복수선택 응답 파싱:
+    구분자: ; , / | 줄바꿈
+    """
+    t = clean_text(text)
+    if not t or is_no_response(t):
+        return []
+    t = t.replace("\n", ";").replace("•", ";")
+    parts = re.split(r"[;,/|]+", t)
+    return [p.strip() for p in parts if p.strip()]
 
-        # --- Field_Group ---
-        all_fg = sorted(df["Field_Group"].dropna().unique().tolist())
-        fg = st.multiselect(
-            "Field_Group",
-            all_fg,
-            default=all_fg
-        )
+def multiselect_summary_fixed(df: pd.DataFrame, col: str, option_order: list[str]) -> tuple[pd.DataFrame, int]:
+    """
+    ✅ 옵션 목록을 고정해 0도 포함하여 집계
+    - 응답자수: 해당 옵션을 선택한 고유 응답자 수
+    - 응답자비율: (응답자수 / (해당 문항에 1개 이상 응답한 사람 수)) * 100
+    """
+    base = df[[col]].copy()
+    base["__rid__"] = base.index
+    base["choices"] = base[col].apply(split_multiselect)
 
-        # --- Year_Level ---
-        all_yl = sorted(df["Year_Level"].dropna().unique().tolist())
-        yl = st.multiselect(
-            "Year_Level",
-            all_yl,
-            default=all_yl
-        )
+    total_respondents = (base["choices"].apply(len) > 0).sum()
+    if total_respondents == 0:
+        out0 = pd.DataFrame({"옵션": option_order, "응답자수": 0, "응답자비율(%)": 0.0})
+        return out0, 0
 
-        # --- Academic_Field ---
-        all_af = sorted(df["Academic_Field"].dropna().unique().tolist())
-        af = st.multiselect(
-            "Academic_Field",
-            all_af,
-            default=all_af
-        )
+    ex = base.explode("choices").dropna(subset=["choices"])
+    ex["choices"] = ex["choices"].astype(str).str.strip()
+    ex = ex[ex["choices"] != ""]
 
-    st.divider()
+    # 설문 옵션과 완전 일치하는 것만 집계(옵션 외 문자열은 기타로 흡수할 수도 있음)
+    allowed = set(option_order)
+    ex.loc[~ex["choices"].isin(allowed), "choices"] = "기타"
 
-    # 문항 선택/그룹 비교는 expander 밖에 둬서 항상 보이게 (중요!)
-    item_label_list = [ITEM_LABELS[c] for c in LIKERT_ITEMS]
-    selected_label = st.selectbox("문항 선택", item_label_list, index=0)
+    grp = ex.drop_duplicates(subset=["__rid__", "choices"]).groupby("choices")["__rid__"].nunique()
 
-    label_to_code = {v: k for k, v in ITEM_LABELS.items()}
-    item = label_to_code[selected_label]
+    # 0 포함 + 순서 고정
+    out = pd.DataFrame({"옵션": option_order})
+    out["응답자수"] = out["옵션"].map(grp).fillna(0).astype(int)
+    out["응답자비율(%)"] = (out["응답자수"] / total_respondents * 100).round(2)
+    return out, int(total_respondents)
 
-    group_by = st.selectbox("그룹 비교 기준", ["Field_Group", "Year_Level", "Academic_Field"], index=0)
+def render_multi(col: str, other_col: str | None):
+    st.markdown(f"#### {B_KEYWORDS.get(col, col)}")
+    st.caption("복수선택 문항입니다. 그래프는 ‘응답자 기준 비율(%)’을 보여줍니다. (설문 옵션 목록 기준으로 0도 포함)")
 
+    option_order = OPTIONS_MAP[col]
+    summ, n_resp = multiselect_summary_fixed(fdf, col, option_order)
 
-# ---- Filtered data ----
-fdf = df[
-    df["Field_Group"].isin(fg) &
-    df["Year_Level"].isin(yl) &
-    df["Academic_Field"].isin(af)
-].copy()
+    st.metric("해당 문항 응답자 수 (N)", f"{n_resp:,}")
 
-st.caption("리커트 척도: 1–6 (값이 클수록 해당 진술에 더 동의하는 방향으로 해석 가능)")
+    # 그래프
+    plot_df = summ.copy()
+    fig = px.bar(
+        plot_df,
+        x="응답자비율(%)",
+        y="옵션",
+        orientation="h",
+        text="응답자비율(%)",
+        title="선택 비율 (응답자 기준 %)"
+    )
+    fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
+    fig.update_layout(
+        height=520,
+        margin=dict(l=10, r=10, t=60, b=10),
+        xaxis_title="응답자 비율(%)",
+        yaxis_title=""
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-# ---- Selected item series ----
-s = fdf[item].dropna()
-if s.empty:
-    st.warning("선택한 필터 조건에서 해당 문항 응답이 없습니다.")
+    st.subheader("옵션별 빈도표")
+    st.dataframe(summ, use_container_width=True, hide_index=True)
+
+    # 기타 서술
+    if other_col and other_col in fdf.columns:
+        st.subheader("기타 (서술) 응답")
+        other = fdf[other_col].astype(str).map(clean_text)
+        other = other[(other != "") & (~other.map(is_no_response))]
+        st.caption(f"기타 서술 응답 수 = {len(other):,}")
+        if other.empty:
+            st.info("기타 서술 응답이 없습니다.")
+        else:
+            st.dataframe(pd.DataFrame({"기타 응답": other}).head(200), use_container_width=True, hide_index=True)
+
+# =========================
+# UI
+# =========================
+st.markdown("### 🧩 공대-컴퓨터(ECS) 자유응답 문항 분석 (B1–B4)")
+st.caption("B1–B3: 복수선택 빈도(응답자 기준 %) + 기타 서술, B4: 주관식 원문 + 키워드(참고용).")
+
+df = load_data(CSV_URL_B)
+
+# 필수 컬럼 체크
+required = META_COLS + B_MULTI + [B_OPEN]
+missing = [c for c in required if c not in df.columns]
+if missing:
+    st.error(f"CSV에 다음 컬럼이 없습니다: {missing}")
     st.stop()
 
-counts = likert_counts(fdf[item])
+# ECS만
+ecs_df = df[df["Field_Group"].astype(str).str.strip().eq("ECS")].copy()
+if ecs_df.empty:
+    st.warning("ECS(Field_Group='ECS') 데이터가 없습니다. CSV를 확인해주세요.")
+    st.stop()
 
-# ---- Quick metrics ----
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("표본 수 (N)", f"{len(s):,}")
-c2.metric("평균 (Mean)", f"{s.mean():.3f}")
-c3.metric("표준편차 (SD)", f"{s.std(ddof=1):.3f}")
-c4.metric("중앙값 (Median)", f"{s.median():.1f}")
+with st.sidebar:
+    st.header("필터 (Filters)")
+    all_yl = sorted(ecs_df["Year_Level"].dropna().astype(str).unique().tolist())
+    yl = st.multiselect("Year_Level", all_yl, default=all_yl)
 
-# ---- Tabs ----
-tab1, tab2, tab3 = st.tabs([
-    "📊 분포 (Distribution)",
-    "🧾 요약 (Summary)",
-    "👥 그룹 비교 (Group Comparison)"
+    st.divider()
+    show_raw = st.checkbox("원자료 일부 보기", value=False)
+
+fdf = ecs_df[ecs_df["Year_Level"].isin(yl)].copy()
+
+c1, c2 = st.columns(2)
+c1.metric("표본 수 (ECS N)", f"{len(fdf):,}")
+c2.metric("원 데이터 전체(ECS) N", f"{len(ecs_df):,}")
+
+if show_raw:
+    st.subheader("데이터 미리보기 (ECS)")
+    candidate_cols = [COL_B1_OTHER, COL_B2_OTHER, COL_B3_OTHER, COL_B3_OTHER2]
+    cols = META_COLS + B_MULTI + [c for c in candidate_cols if c in fdf.columns] + [B_OPEN]
+    st.dataframe(fdf[cols].head(30), use_container_width=True)
+
+# 탭
+tab1, tab2, tab3, tab4 = st.tabs([
+    "B1 [교육과정·정책 개선 요구]",
+    "B2 [정서적 부담감의 원인]",
+    "B3 [학습 내용 선호]",
+    "B4 [대학에 요구사항]",
 ])
 
 with tab1:
-    st.subheader(f"{ITEM_LABELS[item]}: 응답 분포(%)")
-
-    # likert를 문자열로 만들어서 "1~6 범주형"으로 고정
-    plot_df = counts.copy()
-    plot_df["likert"] = plot_df["likert"].astype(str)
-
-    fig_dist = px.bar(
-        plot_df,
-        x="likert",
-        y="percent",
-        text="percent",
-        title="리커트 응답 비율(%)"
-    )
-
-    fig_dist.update_traces(
-        texttemplate="%{text:.1f}%",
-        textposition="outside",
-        cliponaxis=False
-    )
-
-    fig_dist.update_layout(
-        xaxis_title="리커트 값 (1–6)",
-        yaxis_title="비율(%)",
-        xaxis=dict(type="category"),   # ✅ 1~6 간격을 확실히 벌림
-        bargap=0.25,                   # ✅ 막대 간격
-        height=520,                    # ✅ 세로 길이 확보 (가장 중요)
-        margin=dict(l=40, r=20, t=60, b=40)
-    )
-
-    st.plotly_chart(fig_dist, use_container_width=True)
-
-    st.caption("그래프는 각 응답값(1–6)의 비율(%)을 보여줍니다.")
-
+    render_multi(COL_B1, COL_B1_OTHER if COL_B1_OTHER in fdf.columns else None)
 
 with tab2:
-    st.subheader(f"{ITEM_LABELS[item]}: 핵심 요약")
-
-    # 긍정/중립/부정 비율
-    total = counts["count"].sum()
-    neg = counts.loc[counts["likert"].isin([1, 2]), "count"].sum()
-    mid = counts.loc[counts["likert"].isin([3, 4]), "count"].sum()
-    pos = counts.loc[counts["likert"].isin([5, 6]), "count"].sum()
-
-    if total > 0:
-        neg_p = round(neg / total * 100, 2)
-        mid_p = round(mid / total * 100, 2)
-        pos_p = round(pos / total * 100, 2)
-    else:
-        neg_p = mid_p = pos_p = 0.0
-
-    d1, d2, d3 = st.columns(3)
-    d1.metric("부정 (1–2) 비율", f"{neg_p:.2f}%")
-    d2.metric("중립 (3–4) 비율", f"{mid_p:.2f}%")
-    d3.metric("긍정 (5–6) 비율", f"{pos_p:.2f}%")
-
-    st.subheader("응답 분포표")
-    st.dataframe(counts, use_container_width=True)
+    render_multi(COL_B2, COL_B2_OTHER if COL_B2_OTHER in fdf.columns else None)
 
 with tab3:
-    st.subheader(f"{ITEM_LABELS[item]}: {group_by}별 평균 비교")
+    # B3 기타 컬럼은 파일마다 다를 수 있어 우선순위로 선택
+    b3_other = None
+    if COL_B3_OTHER in fdf.columns:
+        b3_other = COL_B3_OTHER
+    elif COL_B3_OTHER2 in fdf.columns:
+        b3_other = COL_B3_OTHER2
+    render_multi(COL_B3, b3_other)
 
-    g = (
-        fdf.groupby(group_by)[item]
-        .agg(N="count", Mean="mean", SD="std")
-        .reset_index()
-        .rename(columns={group_by: "Group"})
-    )
+with tab4:
+    st.markdown(f"#### {B_KEYWORDS.get(COL_B4, COL_B4)}")
+    st.caption("주관식 문항입니다. 'No Response'는 제외됩니다.")
 
-    if g.empty:
-        st.warning("선택한 조건에서 그룹 비교 결과가 없습니다.")
-        st.stop()
+    open_s = fdf[COL_B4].astype(str).map(clean_text)
+    open_s = open_s[(open_s != "") & (~open_s.map(is_no_response))]
 
-    # 값 정리
-    g["Mean"] = g["Mean"].round(3)
-    g["SD"] = g["SD"].round(3)
+    st.metric("주관식 응답 수 (N)", f"{len(open_s):,}")
 
-    # ---------- 그룹 표시 순서 고정(가능한 경우) ----------
-    if group_by == "Field_Group":
-        order = ["ECS", "Hum", "Edu"]
-        g["Group"] = pd.Categorical(g["Group"], categories=order, ordered=True)
-        g = g.sort_values("Group")
-
-        # ✅ 한글+영문 라벨로 변환한 컬럼 생성
-        g["Group_Label"] = g["Group"].astype(str).map(FIELD_GROUP_LABELS).fillna(g["Group"].astype(str))
-
-        x_col = "Group_Label"
-        color_col = "Group_Label"
-        xaxis_title = "영역 (Field_Group)"
-
-    elif group_by == "Year_Level":
-        possible_orders = [
-            ["1학년", "2학년", "3학년", "4학년", "졸업생"],
-            ["1", "2", "3", "4", "졸업생"],
-            ["1st year", "2nd year", "3rd year", "4th year", "graduate"],
-        ]
-        chosen = None
-        for ord_ in possible_orders:
-            if set(g["Group"].astype(str)).issubset(set(ord_)) or any(x in ord_ for x in g["Group"].astype(str).unique()):
-                chosen = ord_
-                break
-
-        if chosen:
-            g["Group"] = pd.Categorical(g["Group"].astype(str), categories=chosen, ordered=True)
-            g = g.sort_values("Group")
-        else:
-            g = g.sort_values("Mean", ascending=False)
-
-        x_col = "Group"
-        color_col = "Group"
-        xaxis_title = "학년 (Year_Level)"
-
+    if open_s.empty:
+        st.warning("주관식(B4) 응답이 없습니다.")
     else:
-        # Academic_Field 등
-        g = g.sort_values("Mean", ascending=False)
-        x_col = "Group"
-        color_col = "Group"
-        xaxis_title = "학과 (Academic_Field)"
-
-    # ---------- 색상 팔레트 선택 ----------
-    palette = st.selectbox(
-        "색상 팔레트 선택",
-        ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
-        index=0,
-        help="그룹별 막대 색상을 바꿉니다."
-    )
-    color_seq = getattr(px.colors.qualitative, palette, px.colors.qualitative.Plotly)
-
-    # ---------- Plotly bar chart ----------
-    fig = px.bar(
-        g,
-        x=x_col,
-        y="Mean",
-        color=color_col,
-        text="Mean",
-        hover_data={"N": True, "Mean": True, "SD": True},
-        color_discrete_sequence=color_seq,
-        title=f"{ITEM_LABELS[item]}: 그룹별 평균 (Mean)"
-    )
-
-    fig.update_traces(
-        texttemplate="%{text:.2f}",
-        textposition="outside",
-        cliponaxis=False
-    )
-
-    fig.update_layout(
-        xaxis_title=xaxis_title,
-        yaxis_title="평균 (Mean, 1–6)",   # ✅ 세로축 한글 먼저
-        showlegend=False,
-        margin=dict(l=20, r=20, t=70, b=20)
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.caption("막대는 그룹별 평균(Mean)을 의미합니다. 아래 표에서 표본 수(N)와 표준편차(SD)도 함께 확인하세요.")
-    st.dataframe(g, use_container_width=True, hide_index=True)
+        st.subheader("주관식 원문 보기")
+        q = st.text_input("원문 검색(포함 검색)", value="")
+        view = open_s
+        if q.strip():
+            view = view[view.str.contains(q.strip(), na=False)]
+        st.dataframe(pd.DataFrame({"B4 응답": view}).head(400), use_container_width=True, hide_index=True)
