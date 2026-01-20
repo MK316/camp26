@@ -18,4 +18,4 @@ st.write(
 
 st.info("데이터는 GitHub CSV에서 불러옵니다. (캐시 적용)")
 
-st.caption("5 PM, Jan. 20)
+st.caption("5 PM, Jan. 20")
