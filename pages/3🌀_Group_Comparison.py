@@ -95,8 +95,8 @@ with st.sidebar:
 
     group_col = st.selectbox("그룹 기준", ["Field_Group", "Year_Level", "Academic_Field"], index=0)
 
-    show_trend = st.checkbox("추세선(회귀선) 표시", value=True)
-    show_hist = st.checkbox("전체 문항 상관 히트맵 보기", value=True)
+    # show_trend = st.checkbox("추세선(회귀선) 표시", value=True)
+    # show_hist = st.checkbox("전체 문항 상관 히트맵 보기", value=True)
 
 # ---- Filtered data ----
 fdf = df[
@@ -146,25 +146,26 @@ with tab1:
     )
     
     # statsmodels 없이 추세선(전체) 추가
-    if show_trend:
-        tmp = sub[[x_item, y_item]].dropna()
-        if len(tmp) >= 2:
-            x = tmp[x_item].to_numpy()
-            y = tmp[y_item].to_numpy()
-            a, b = np.polyfit(x, y, 1)
-            x_line = np.linspace(x.min(), x.max(), 50)
-            y_line = a * x_line + b
+    # statsmodels 없이 추세선(전체) 추가 (항상 표시)
+    tmp = sub[[x_item, y_item]].dropna()
+    if len(tmp) >= 2:
+        x = tmp[x_item].to_numpy()
+        y = tmp[y_item].to_numpy()
+        a, b = np.polyfit(x, y, 1)
+        x_line = np.linspace(x.min(), x.max(), 50)
+        y_line = a * x_line + b
     
-            fig.add_trace(
-                go.Scatter(
-                    x=x_line,
-                    y=y_line,
-                    mode="lines",
-                    name="추세선(전체)"
-                )
+        fig.add_trace(
+            go.Scatter(
+                x=x_line,
+                y=y_line,
+                mode="lines",
+                name="추세선(전체)"
             )
+        )
     
     st.plotly_chart(fig, use_container_width=True)
+    
 
 
 
