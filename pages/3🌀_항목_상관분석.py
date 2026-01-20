@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import numpy as np
 
 
-CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12.csv"
+CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12_01206PM3.csv"
 
 LIKERT_ITEMS = [
     "Q01_GenC","Q02_UndA","Q03_UseA","Q04_SolP","Q05_PedU","Q06_GroB",
