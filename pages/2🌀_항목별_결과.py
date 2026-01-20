@@ -25,6 +25,13 @@ ITEM_LABELS = {
     "Q12_ManI": "Q12 AI 교육의 제도화",
 }
 
+FIELD_GROUP_LABELS = {
+    "ECS": "공대-컴퓨터 (ECS)",
+    "Hum": "인문 (Humanities)",
+    "Edu": "사범 (Education)"
+}
+
+
 GROUP_COLS = ["Field_Group", "Year_Level", "Academic_Field"]
 
 @st.cache_data(show_spinner=False)
@@ -205,13 +212,18 @@ with tab3:
 
     # ---------- 그룹 표시 순서 고정(가능한 경우) ----------
     if group_by == "Field_Group":
-        # ECS, Edu, Hum 순서 고정
         order = ["ECS", "Hum", "Edu"]
         g["Group"] = pd.Categorical(g["Group"], categories=order, ordered=True)
         g = g.sort_values("Group")
 
+        # ✅ 한글+영문 라벨로 변환한 컬럼 생성
+        g["Group_Label"] = g["Group"].astype(str).map(FIELD_GROUP_LABELS).fillna(g["Group"].astype(str))
+
+        x_col = "Group_Label"
+        color_col = "Group_Label"
+        xaxis_title = "영역 (Field_Group)"
+
     elif group_by == "Year_Level":
-        # 1학년~4학년 + 졸업생 순서 고정 (데이터 표기가 다를 수 있어 최대한 유연하게)
         possible_orders = [
             ["1학년", "2학년", "3학년", "4학년", "졸업생"],
             ["1", "2", "3", "4", "졸업생"],
@@ -227,12 +239,18 @@ with tab3:
             g["Group"] = pd.Categorical(g["Group"].astype(str), categories=chosen, ordered=True)
             g = g.sort_values("Group")
         else:
-            # 순서를 못 맞추면 평균 내림차순
             g = g.sort_values("Mean", ascending=False)
 
+        x_col = "Group"
+        color_col = "Group"
+        xaxis_title = "학년 (Year_Level)"
+
     else:
-        # Academic_Field 등: 평균 내림차순
+        # Academic_Field 등
         g = g.sort_values("Mean", ascending=False)
+        x_col = "Group"
+        color_col = "Group"
+        xaxis_title = "학과 (Academic_Field)"
 
     # ---------- 색상 팔레트 선택 ----------
     palette = st.selectbox(
@@ -246,11 +264,11 @@ with tab3:
     # ---------- Plotly bar chart ----------
     fig = px.bar(
         g,
-        x="Group",
+        x=x_col,
         y="Mean",
-        color="Group",  # 그룹별 색상
+        color=color_col,
         text="Mean",
-        hover_data={"Group": True, "N": True, "Mean": True, "SD": True},
+        hover_data={"N": True, "Mean": True, "SD": True},
         color_discrete_sequence=color_seq,
         title=f"{ITEM_LABELS[item]}: 그룹별 평균 (Mean)"
     )
@@ -262,9 +280,9 @@ with tab3:
     )
 
     fig.update_layout(
-        xaxis_title=group_by,
-        yaxis_title="Mean (1–6)",
-        showlegend=False,  # 범례 필요하면 True
+        xaxis_title=xaxis_title,
+        yaxis_title="평균 (Mean, 1–6)",   # ✅ 세로축 한글 먼저
+        showlegend=False,
         margin=dict(l=20, r=20, t=70, b=20)
     )
 
