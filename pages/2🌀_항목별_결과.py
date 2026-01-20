@@ -50,34 +50,48 @@ st.caption("📌 왼쪽 메뉴에 선택 필터를 조정하세요. (영역별, 
 df = load_data(CSV_URL)
 
 # ---- Sidebar filters ----
+# ---- Sidebar filters ----
 with st.sidebar:
     st.header("필터 (Filters)")
-    fg = st.multiselect(
-        "Field_Group",
-        sorted(df["Field_Group"].dropna().unique().tolist()),
-        default=sorted(df["Field_Group"].dropna().unique().tolist())
-    )
-    yl = st.multiselect(
-        "Year_Level",
-        sorted(df["Year_Level"].dropna().unique().tolist()),
-        default=sorted(df["Year_Level"].dropna().unique().tolist())
-    )
-    af = st.multiselect(
-        "Academic_Field",
-        sorted(df["Academic_Field"].dropna().unique().tolist()),
-        default=sorted(df["Academic_Field"].dropna().unique().tolist())
-    )
 
-    # 문항 선택: 한글명으로 보여주기
+    # (선택) 필터 전체를 접을 수 있게
+    with st.expander("필터 펼치기/접기", expanded=False):
+
+        # --- Field_Group ---
+        all_fg = sorted(df["Field_Group"].dropna().unique().tolist())
+        fg = st.multiselect(
+            "Field_Group",
+            all_fg,
+            default=all_fg
+        )
+
+        # --- Year_Level ---
+        all_yl = sorted(df["Year_Level"].dropna().unique().tolist())
+        yl = st.multiselect(
+            "Year_Level",
+            all_yl,
+            default=all_yl
+        )
+
+        # --- Academic_Field ---
+        all_af = sorted(df["Academic_Field"].dropna().unique().tolist())
+        af = st.multiselect(
+            "Academic_Field",
+            all_af,
+            default=all_af
+        )
+
+    st.divider()
+
+    # 문항 선택/그룹 비교는 expander 밖에 둬서 항상 보이게 (중요!)
     item_label_list = [ITEM_LABELS[c] for c in LIKERT_ITEMS]
     selected_label = st.selectbox("문항 선택", item_label_list, index=0)
 
-    # 라벨 -> 원본 컬럼명 역매핑
     label_to_code = {v: k for k, v in ITEM_LABELS.items()}
     item = label_to_code[selected_label]
 
-    # 그룹 비교 탭에서 사용할 기준 선택
     group_by = st.selectbox("그룹 비교 기준", ["Field_Group", "Year_Level", "Academic_Field"], index=0)
+
 
 # ---- Filtered data ----
 fdf = df[
