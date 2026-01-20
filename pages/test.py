@@ -41,9 +41,6 @@ E2_OPTIONS = [
 OPTIONS_MAP = {COL_E1: E1_OPTIONS, COL_E2: E2_OPTIONS}
 
 
-# -------------------------
-# Load
-# -------------------------
 @st.cache_data(show_spinner=False)
 def load_data(url: str) -> pd.DataFrame:
     try:
@@ -57,15 +54,7 @@ def load_data(url: str) -> pd.DataFrame:
     return df
 
 
-# -------------------------
-# Summary for single-choice
-# -------------------------
 def single_choice_summary(df: pd.DataFrame, col: str, option_order: list[str]) -> tuple[pd.DataFrame, int]:
-    """
-    단일선택 문항 요약:
-    - option_order에 따라 0 포함
-    - percent = count / valid_n * 100
-    """
     s = df[col].dropna().astype(str).str.strip()
     s = s[(s != "") & (s.str.lower() != "nan")]
 
@@ -86,6 +75,7 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
     option_order = OPTIONS_MAP[col]
 
     st.markdown(f"#### {label}")
+
     summ, n_valid = single_choice_summary(fdf, col, option_order)
     st.metric("유효 응답 수 (N)", f"{n_valid:,}")
 
@@ -93,31 +83,66 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
         st.info("현재 필터 조건에서 유효 응답이 없습니다.")
         return
 
+    # ✅ 팔렛트 색상 가져오기 + 보기별 색상 매핑 고정
     color_seq = getattr(px.colors.qualitative, palette_name, px.colors.qualitative.Plotly)
+    # 팔렛트 길이가 보기 개수보다 짧으면 반복
+    if len(color_seq) < len(option_order):
+        k = (len(option_order) // len(color_seq)) + 1
+        color_seq = (color_seq * k)[: len(option_order)]
+    color_map = {opt: color_seq[i] for i, opt in enumerate(option_order)}
 
-    # 큰 값이 위로 오게: 가로막대는 ascending으로 두면 위쪽이 큼
+    # -------------------------
+    # (1) Bar plot (아래에서 큰 값이 위로 오게)
+    # -------------------------
     plot_df = summ.sort_values("비율(%)", ascending=True).copy()
 
-    fig = px.bar(
+    fig_bar = px.bar(
         plot_df,
         x="비율(%)",
         y="보기",
         orientation="h",
         text="비율(%)",
         color="보기",
-        color_discrete_sequence=color_seq,
+        color_discrete_map=color_map,
         title=f"{label} 응답 분포(%)"
     )
-    fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
-    fig.update_layout(
+    fig_bar.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
+    fig_bar.update_layout(
         height=520,
         showlegend=False,
         margin=dict(l=10, r=10, t=60, b=10),
         xaxis_title="비율(%)",
         yaxis_title=""
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig_bar, use_container_width=True)
 
+    # -------------------------
+    # (2) Pie chart
+    # -------------------------
+    st.subheader("🧩 파이차트")
+    pie_df = summ[summ["빈도"] > 0].copy()
+    if pie_df.empty:
+        st.info("파이차트를 만들 유효 응답이 없습니다.")
+    else:
+        fig_pie = px.pie(
+            pie_df,
+            names="보기",
+            values="빈도",
+            color="보기",
+            color_discrete_map=color_map,
+            title=f"{label} 응답 비중(빈도 기준)"
+        )
+        # 퍼센트+라벨 표시(겹치면 자동 줄어듦)
+        fig_pie.update_traces(textinfo="percent+label")
+        fig_pie.update_layout(
+            height=520,
+            margin=dict(l=10, r=10, t=60, b=10)
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    # -------------------------
+    # table
+    # -------------------------
     st.subheader("빈도표")
     st.dataframe(summ, use_container_width=True, hide_index=True)
 
@@ -126,7 +151,7 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
 # UI
 # =========================
 st.markdown("### 🧩 인문 영역: E1–E2 (단일선택) 결과")
-st.caption("E1/E2는 단일선택 문항이며, 보기(옵션) 순서는 설문 이미지 기준으로 고정했습니다.")
+st.caption("각 탭에서 막대그래프 + 파이차트를 함께 제공합니다. 보기(옵션) 순서는 설문 이미지 기준으로 고정했습니다.")
 
 df = load_data(CSV_URL_E)
 
@@ -149,7 +174,8 @@ with st.sidebar:
     palette = st.selectbox(
         "색상 팔레트",
         ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
-        index=0
+        index=0,
+        help="막대/파이차트 색상을 함께 바꿉니다."
     )
     show_raw = st.checkbox("원자료 일부 보기", value=False)
 
