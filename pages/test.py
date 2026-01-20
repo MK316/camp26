@@ -7,7 +7,6 @@ import plotly.express as px
 # =========================
 st.set_page_config(page_title="Hum E-items (E1–E2)", layout="wide")
 
-# ✅ 실제 CSV raw URL로 바꾸세요
 CSV_URL_E = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/Hum-essay-105.csv"
 
 META_COLS = ["Academic_Field", "Year_Level"]
@@ -21,7 +20,7 @@ DISPLAY_LABELS = {
     "Year_Level": "학년 (Year_Level)",
 }
 
-# ✅ 보기(옵션) 순서 고정: 이미지 그대로
+# 보기(옵션) 순서 고정
 E1_OPTIONS = [
     "전혀 영향을 미치지 않는다.",
     "거의 영향을 미치지 않는다.",
@@ -70,6 +69,14 @@ def single_choice_summary(df: pd.DataFrame, col: str, option_order: list[str]) -
     return out, valid_n
 
 
+def build_color_map(option_order: list[str], palette_name: str) -> dict:
+    color_seq = getattr(px.colors.qualitative, palette_name, px.colors.qualitative.Plotly)
+    if len(color_seq) < len(option_order):
+        k = (len(option_order) // len(color_seq)) + 1
+        color_seq = (color_seq * k)[: len(option_order)]
+    return {opt: color_seq[i] for i, opt in enumerate(option_order)}
+
+
 def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
     label = DISPLAY_LABELS.get(col, col)
     option_order = OPTIONS_MAP[col]
@@ -83,16 +90,11 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
         st.info("현재 필터 조건에서 유효 응답이 없습니다.")
         return
 
-    # ✅ 팔렛트 색상 가져오기 + 보기별 색상 매핑 고정
-    color_seq = getattr(px.colors.qualitative, palette_name, px.colors.qualitative.Plotly)
-    # 팔렛트 길이가 보기 개수보다 짧으면 반복
-    if len(color_seq) < len(option_order):
-        k = (len(option_order) // len(color_seq)) + 1
-        color_seq = (color_seq * k)[: len(option_order)]
-    color_map = {opt: color_seq[i] for i, opt in enumerate(option_order)}
+    # ✅ Bar/Pie 공통 color_map
+    color_map = build_color_map(option_order, palette_name)
 
     # -------------------------
-    # (1) Bar plot (아래에서 큰 값이 위로 오게)
+    # (1) Bar plot: 빈도 큰 항목이 위로 오게 (ascending=True면 아래->위로 커짐)
     # -------------------------
     plot_df = summ.sort_values("비율(%)", ascending=True).copy()
 
@@ -116,64 +118,48 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
-    
     # -------------------------
-    # (2) Pie chart (밖에 라벨 + 리더라인 + 크기 조정 + 팔레트 선택)
+    # (2) Pie chart: 밖 라벨 + 도넛 + 크기 줄이기 + 잘림 방지
     # -------------------------
     st.subheader("🧩 파이차트")
-    
-    # ✅ 팔레트 선택 (드랍박스)
-    palette = st.selectbox(
-        "색상 팔레트 선택 (파이/바 공통)",
-        ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
-        index=0,
-        key=f"{col}_palette_pie"
-    )
-    color_seq = getattr(px.colors.qualitative, palette, px.colors.qualitative.Plotly)
-    
-    # ✅ 옵션별 color_map 만들기 (항목마다 색 다르게)
-    opts_in_view = summ["보기"].tolist()
-    color_map = {opt: color_seq[i % len(color_seq)] for i, opt in enumerate(opts_in_view)}
-    
+
     pie_df = summ[summ["빈도"] > 0].copy()
-    
     if pie_df.empty:
         st.info("파이차트를 만들 유효 응답이 없습니다.")
-    else:
-        fig_pie = px.pie(
-            pie_df,
-            names="보기",
-            values="빈도",
-            color="보기",
-            color_discrete_map=color_map,
-            title=f"{label} 응답 비중(빈도 기준)"
-        )
-    
-        # ✅ 파이를 “좀 더 작게”: domain 축소 + 도넛으로 리더라인 공간 확보
-        fig_pie.update_traces(
-            hole=0.25,  # 도넛(리더라인/텍스트 공간 확보)
-            textposition="outside",
-            textinfo="label+percent",
-            textfont_size=16,  # ✅ 텍스트 크게
-            insidetextorientation="auto",
-            # 리더라인이 잘 보이도록(조각 약간 당김)
-            pull=0.02
-        )
-    
-        # ✅ 잘림 방지: margin 크게 + 파이 도메인 축소(중앙에 작게 배치)
-        fig_pie.update_layout(
-            height=520,
-            margin=dict(l=40, r=40, t=70, b=90),   # ✅ 아래(b) 크게
-            showlegend=False,
-            uniformtext_minsize=14,
-            uniformtext_mode="show",               # ✅ 가능한 한 보여주기
-        )
-    
-        # ✅ 파이 자체를 화면 중앙에 “작게” (domain 조절)
-        fig_pie.update_traces(domain=dict(x=[0.05, 0.95], y=[0.12, 0.92]))
-    
-        st.plotly_chart(fig_pie, use_container_width=True)
+        return
 
+    fig_pie = px.pie(
+        pie_df,
+        names="보기",
+        values="빈도",
+        color="보기",
+        color_discrete_map=color_map,
+        title=f"{label} 응답 비중(빈도 기준)"
+    )
+
+    fig_pie.update_traces(
+        hole=0.25,
+        textposition="outside",
+        textinfo="label+percent",
+        textfont_size=18,
+        pull=0.02
+    )
+
+    # 파이를 더 작게(도메인 축소) + 아래 잘림 방지
+    fig_pie.update_layout(
+        height=520,
+        margin=dict(l=40, r=40, t=70, b=120),   # ✅ b 크게
+        showlegend=False,
+        uniformtext_minsize=14,
+        uniformtext_mode="show",
+    )
+    fig_pie.update_traces(domain=dict(x=[0.08, 0.92], y=[0.18, 0.88]))
+
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+    # 표도 같이
+    st.subheader("📋 빈도표")
+    st.dataframe(summ, use_container_width=True, hide_index=True)
 
 
 # =========================
@@ -201,7 +187,7 @@ with st.sidebar:
 
     st.divider()
     palette = st.selectbox(
-        "색상 팔레트",
+        "색상 팔레트 (Bar + Pie 공통)",
         ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
         index=0,
         help="막대/파이차트 색상을 함께 바꿉니다."
