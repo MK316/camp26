@@ -10,13 +10,10 @@ import plotly.graph_objects as go
 # Education(사범) E-items (E1~E4)
 # - E1~E3: 복수선택(옵션형)
 # - E4: 주관식
-# - 화면에는 [ ] 키워드 중심 + "E1~E4" 함께 표기
 # =========================================
 st.set_page_config(page_title="Education E-items (E1–E4)", layout="wide")
 
-# ✅ 사범 데이터 CSV raw URL로 바꾸세요
 CSV_URL_EDU = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/Edu-essay123.csv"
-
 
 # =========================
 # Columns (actual CSV)
@@ -28,8 +25,8 @@ COL_E2 = "E2"
 COL_E3 = "E3"
 COL_E4 = "E4"
 
-B_MULTI = [COL_E1, COL_E2, COL_E3]
-B_OPEN = COL_E4
+E_MULTI = [COL_E1, COL_E2, COL_E3]
+E_OPEN = COL_E4
 
 # =========================
 # Display labels (shown on screen)
@@ -44,14 +41,11 @@ DISPLAY_LABELS = {
     "Year_Original": "원 학년 표기 (Year_Original)",
 }
 
-
-
-
 # =========================================
-# (선택) 옵션 목록을 고정하고 싶다면 여기에 넣으세요.
-# 없으면 데이터에서 나온 선택지로 집계(권장: 우선은 자동).
+# (선택) 옵션 목록 고정(원하면 리스트로 넣기)
+# - None이면 데이터에서 자동 추출(권장: 우선 자동)
 # =========================================
-E1_OPTIONS = None  # 예: ["옵션1", "옵션2", ...]
+E1_OPTIONS = None
 E2_OPTIONS = None
 E3_OPTIONS = None
 
@@ -71,24 +65,17 @@ def load_data(url: str) -> pd.DataFrame:
     except UnicodeDecodeError:
         df = pd.read_csv(url, encoding="cp949")
 
-    # 공백 제거
+    # 문자열 공백 제거
     for c in df.columns:
         if df[c].dtype == object:
             df[c] = df[c].astype(str).str.strip()
 
-    # 긴 컬럼명을 E1~E4로 rename
-    missing_src = [c for c in COL_MAP.keys() if c not in df.columns]
-    if missing_src:
-        st.error("CSV 컬럼명이 코드와 일치하지 않습니다. 아래 컬럼이 CSV에 없습니다:\n\n- " + "\n- ".join(missing_src))
+    # 필수 컬럼 체크 (E1~E4가 이미 존재해야 함)
+    required = META_COLS + [COL_E1, COL_E2, COL_E3, COL_E4]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        st.error("CSV에 다음 컬럼이 없습니다:\n\n- " + "\n- ".join(missing))
         st.stop()
-
-    df = df.rename(columns=COL_MAP)
-
-    # 메타 컬럼 확인
-    for c in META_COLS:
-        if c not in df.columns:
-            st.error(f"CSV에 메타 컬럼이 없습니다: {c}")
-            st.stop()
 
     return df
 
@@ -108,7 +95,7 @@ def is_no_response(text: str) -> bool:
 
 def split_multiselect(text: str) -> list[str]:
     """
-    복수선택 응답 파싱 (구글폼 CSV에서 흔한 패턴)
+    복수선택 응답 파싱:
     - 구분자: ; , / | 줄바꿈
     """
     t = clean_text(text)
@@ -133,21 +120,26 @@ def multiselect_summary(df: pd.DataFrame, col: str, option_order: list[str] | No
     ex["choices"] = ex["choices"].astype(str).str.strip()
     ex = ex[ex["choices"] != ""]
 
-    # 옵션 목록 고정이 있으면 옵션 외는 '기타'로 흡수(단, 기타가 없으면 '기타'를 추가)
+    # 옵션 목록 고정이 있으면, 옵션 외는 '기타'로 흡수
     if option_order:
         allowed = set(option_order)
-        if "기타" in allowed:
-            ex.loc[~ex["choices"].isin(allowed), "choices"] = "기타"
-        else:
-            ex.loc[~ex["choices"].isin(allowed), "choices"] = "기타"
+        ex.loc[~ex["choices"].isin(allowed), "choices"] = "기타"
+        if "기타" not in allowed:
             option_order = option_order + ["기타"]
 
     grp = ex.drop_duplicates(subset=["__rid__", "choices"]).groupby("choices")["__rid__"].nunique()
-    out = pd.DataFrame({"옵션": option_order or sorted(grp.index.tolist())})
+
+    # 자동(데이터 기반)일 때는 빈도 순으로 보기 좋게
+    if option_order is None:
+        options = grp.sort_values(ascending=False).index.tolist()
+    else:
+        options = option_order
+
+    out = pd.DataFrame({"옵션": options})
     out["응답자수"] = out["옵션"].map(grp).fillna(0).astype(int)
     out["응답자비율(%)"] = (out["응답자수"] / n_resp * 100).round(2)
 
-    # ✅ 많은 빈도 먼저 보이도록
+    # ✅ 많은 빈도 먼저
     out = out.sort_values(["응답자수", "옵션"], ascending=[False, True]).reset_index(drop=True)
     return out, n_resp
 
@@ -172,15 +164,6 @@ def tokenize_ko_basic(text: str, stop: set[str]) -> list[str]:
 # =========================================
 st.markdown("### 🧩 사범(Education) 영역: E1–E4")
 st.caption("E1–E3: 복수선택(응답자 기준 %), E4: 주관식(키워드/그룹 비교/공동출현 네트워크 + 워드클라우드(가능 시))")
-
-st.info("""
-E1. 미래교사의 디지털·AI 활용 역량 강화를 위해 대학 교육과정에서 가장 필요하다고 생각하는 지원은 무엇입니까?
-(복수 선택 가능)
-E2. 디지털·AI 관련 학습에서 부담감이나 어려움을 느끼는 주된 이유는 무엇입니까?
-(복수 선택 가능)
-E3. 대학에서 디지털·AI 관련 수업이 개설된다면, 가장 배우고 싶은 내용은 무엇입니까?
-(복수 선택 가능)
-E4. 디지털·AI 문해력 강화를 위해 대학 차원에서 학생들에게 우선적으로 제공해야 할 핵심 요소나 키워드는 무엇이라고 생각하십니까?""")
 
 df = load_data(CSV_URL_EDU)
 
@@ -209,7 +192,6 @@ fdf = df[
     df["Year_Level"].isin(yl) &
     df["Year_Original"].isin(yo)
 ].copy()
-
 
 c1, c2, c3 = st.columns(3)
 c1.metric("표본 수 (현재 필터 N)", f"{len(fdf):,}")
@@ -243,12 +225,15 @@ def render_multi(col: str, option_order: list[str] | None):
         st.info("현재 필터 조건에서 유효 응답이 없습니다.")
         return
 
-    # ✅ 항목별 다른 색 + 팔레트 적용
+    # 항목별 색(팔레트 적용)
     opts = summ["옵션"].tolist()
     cmap = {opt: color_seq[i % len(color_seq)] for i, opt in enumerate(opts)}
 
+    # 가로막대: 위쪽에 큰 값
+    plot_df = summ.sort_values("응답자비율(%)", ascending=True)
+
     fig = px.bar(
-        summ.sort_values("응답자비율(%)", ascending=True),  # 가로막대에서 위쪽에 큰 값
+        plot_df,
         x="응답자비율(%)",
         y="옵션",
         orientation="h",
@@ -292,7 +277,6 @@ with tab4:
         st.warning("현재 필터 조건에서 E4 주관식 응답이 없습니다.")
         st.stop()
 
-    # ---- 기본 토큰/불용어 ----
     STOP = {
         "그리고","하지만","또한","그래서","때문","정도","같아요","합니다","했다","하는","에서","으로","에게",
         "것","수","등","좀","더","제","저","우리","너무","정말","있다","없다","이다","되다","있는",
@@ -304,7 +288,7 @@ with tab4:
 
     # (A) 키워드 빈도
     st.subheader("🔎 전체 상위 키워드")
-    top_n = st.slider("Top 키워드 개수", 10, 80, 30, 5, key="edu_e4_topn")
+    top_n = st.slider("Top 키워드 개수", 10, 120, 40, 5, key="edu_e4_topn")
 
     if not all_tokens:
         st.info("키워드를 추출할 텍스트가 충분하지 않습니다.")
@@ -317,14 +301,14 @@ with tab4:
             orientation="h",
             title=f"전체 상위 {top_n}개 키워드"
         )
-        fig_kw.update_layout(height=620, margin=dict(l=20, r=20, t=60, b=20),
+        fig_kw.update_layout(height=680, margin=dict(l=20, r=20, t=60, b=20),
                              xaxis_title="빈도", yaxis_title="키워드")
         st.plotly_chart(fig_kw, use_container_width=True)
         st.dataframe(freq_df, use_container_width=True, hide_index=True)
 
     # (B) 그룹별 키워드 비교
     st.subheader("👥 그룹별 키워드 비교")
-    group_col = st.selectbox("그룹 기준 선택", ["Academic_Field", "Year_Level"], index=0, key="edu_e4_groupcol")
+    group_col = st.selectbox("그룹 기준 선택", ["Academic_Field", "Year_Level", "Year_Original"], index=0, key="edu_e4_groupcol")
     min_n = st.slider("그룹 최소 응답 수", 1, 30, 5, key="edu_e4_min_group_n")
 
     tmp_df = fdf.copy()
@@ -343,7 +327,7 @@ with tab4:
             default=valid_groups[: min(6, len(valid_groups))],
             key="edu_e4_groups_pick"
         )
-        per_top = st.slider("그룹별 Top 키워드 수", 5, 30, 10, 1, key="edu_e4_per_top")
+        per_top = st.slider("그룹별 Top 키워드 수", 5, 40, 12, 1, key="edu_e4_per_top")
 
         rows = []
         for gname in show_groups:
@@ -366,22 +350,24 @@ with tab4:
                 orientation="h",
                 title=f"{group_col}별 상위 키워드 비교 (Top {per_top})"
             )
-            fig_gkw.update_layout(height=700, margin=dict(l=20, r=20, t=60, b=20),
+            fig_gkw.update_layout(height=740, margin=dict(l=20, r=20, t=60, b=20),
                                   xaxis_title="빈도", yaxis_title="키워드")
             st.plotly_chart(fig_gkw, use_container_width=True)
             st.dataframe(gkw.sort_values(["Group", "count"], ascending=[True, False]),
                          use_container_width=True, hide_index=True)
 
-    # (C) 공동출현 네트워크(Plotly)
+    # (C) 공동출현 네트워크
     st.subheader("🕸️ 키워드 공동출현 네트워크")
     st.caption("한 응답 안에서 함께 등장한 키워드 쌍을 연결합니다. (상위 키워드 중심)")
 
-    net_top = st.slider("네트워크에 포함할 상위 키워드 수", 10, 120, 40, 5, key="edu_e4_net_top")
+    net_top = st.slider("네트워크에 포함할 상위 키워드 수", 10, 150, 50, 5, key="edu_e4_net_top")
     min_edge = st.slider("엣지 최소 공동출현 횟수", 1, 20, 2, 1, key="edu_e4_net_min_edge")
 
     if not all_tokens:
         st.info("네트워크를 만들 토큰이 없습니다.")
     else:
+        import numpy as np
+
         top_vocab = [k for k, _ in Counter(all_tokens).most_common(net_top)]
         vocab_set = set(top_vocab)
 
@@ -398,8 +384,6 @@ with tab4:
         if not edges:
             st.info("현재 설정(min_edge 등)에서 네트워크 엣지가 없습니다. 엣지 최소 공동출현 횟수를 낮춰보세요.")
         else:
-            import numpy as np
-
             node_w = {k: Counter(all_tokens)[k] for k in top_vocab}
 
             n = len(top_vocab)
@@ -441,7 +425,7 @@ with tab4:
             fig_net.update_layout(
                 title="키워드 공동출현 네트워크 (원형 배치)",
                 showlegend=False,
-                height=760,
+                height=780,
                 margin=dict(l=10, r=10, t=60, b=10),
                 xaxis=dict(visible=False),
                 yaxis=dict(visible=False)
@@ -453,7 +437,7 @@ with tab4:
             st.subheader("공동출현 상위 엣지(Top 200)")
             st.dataframe(edge_df, use_container_width=True, hide_index=True)
 
-    # (D) 워드클라우드(가능한 경우)
+    # (D) 워드클라우드 (가능한 경우)
     st.subheader("☁️ 워드클라우드 (가능한 경우)")
     st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. 한글 폰트가 필요합니다.")
 
@@ -461,7 +445,6 @@ with tab4:
         from wordcloud import WordCloud
         import matplotlib.pyplot as plt
 
-        # ✅ 레포에 assets 폴더가 있고, 폰트가 들어있다는 전제
         font_path = "assets/NanumGothic-Regular.ttf"
 
         if not all_tokens:
@@ -485,4 +468,5 @@ with tab4:
         st.info("wordcloud 패키지가 없어 워드클라우드를 표시할 수 없습니다. requirements.txt에 wordcloud를 추가하면 됩니다.")
     except FileNotFoundError:
         st.error("폰트 파일을 찾을 수 없습니다. assets/NanumGothic-Regular.ttf 경로를 확인하세요.")
-
+    except Exception as e:
+        st.warning(f"워드클라우드 생성 중 오류: {e}")
