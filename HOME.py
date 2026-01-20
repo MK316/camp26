@@ -28,7 +28,7 @@ st.markdown("""
     """)
 
 
-st.info("데이터는 GitHub MK316에서 불러옵니다.")
+st.info("데이터는 GitHub ID: MK316에서 불러옵니다.")
 
 st.caption("Data updated asof 6:30 PM, Jan. 20")
 
