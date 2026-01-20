@@ -1,5 +1,7 @@
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+
 
 CSV_URL = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/datatotalQ12.csv"
 
@@ -159,21 +161,87 @@ with tab2:
 with tab3:
     st.subheader(f"{ITEM_LABELS[item]}: {group_by}별 평균 비교")
 
-    # 그룹별 평균과 N
     g = (
         fdf.groupby(group_by)[item]
         .agg(N="count", Mean="mean", SD="std")
         .reset_index()
+        .rename(columns={group_by: "Group"})
     )
-    g["Mean"] = g["Mean"].round(3)
-    g["SD"] = g["SD"].round(3)
 
     if g.empty:
         st.warning("선택한 조건에서 그룹 비교 결과가 없습니다.")
-    else:
-        # 평균 막대 그래프
-        chart_df = g.set_index(group_by)["Mean"]
-        st.bar_chart(chart_df)
+        st.stop()
 
-        st.caption("막대는 그룹별 평균(Mean)을 의미합니다. 표에서 표본 수(N)도 함께 확인하세요.")
-        st.dataframe(g.rename(columns={group_by: "Group"}), use_container_width=True)
+    # 값 정리
+    g["Mean"] = g["Mean"].round(3)
+    g["SD"] = g["SD"].round(3)
+
+    # ---------- 그룹 표시 순서 고정(가능한 경우) ----------
+    if group_by == "Field_Group":
+        # ECS, Edu, Hum 순서 고정
+        order = ["ECS", "Hum", "Edu"]
+        g["Group"] = pd.Categorical(g["Group"], categories=order, ordered=True)
+        g = g.sort_values("Group")
+
+    elif group_by == "Year_Level":
+        # 1학년~4학년 + 졸업생 순서 고정 (데이터 표기가 다를 수 있어 최대한 유연하게)
+        possible_orders = [
+            ["1학년", "2학년", "3학년", "4학년", "졸업생"],
+            ["1", "2", "3", "4", "졸업생"],
+            ["1st year", "2nd year", "3rd year", "4th year", "graduate"],
+        ]
+        chosen = None
+        for ord_ in possible_orders:
+            if set(g["Group"].astype(str)).issubset(set(ord_)) or any(x in ord_ for x in g["Group"].astype(str).unique()):
+                chosen = ord_
+                break
+
+        if chosen:
+            g["Group"] = pd.Categorical(g["Group"].astype(str), categories=chosen, ordered=True)
+            g = g.sort_values("Group")
+        else:
+            # 순서를 못 맞추면 평균 내림차순
+            g = g.sort_values("Mean", ascending=False)
+
+    else:
+        # Academic_Field 등: 평균 내림차순
+        g = g.sort_values("Mean", ascending=False)
+
+    # ---------- 색상 팔레트 선택 ----------
+    palette = st.selectbox(
+        "색상 팔레트 선택",
+        ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
+        index=0,
+        help="그룹별 막대 색상을 바꿉니다."
+    )
+    color_seq = getattr(px.colors.qualitative, palette, px.colors.qualitative.Plotly)
+
+    # ---------- Plotly bar chart ----------
+    fig = px.bar(
+        g,
+        x="Group",
+        y="Mean",
+        color="Group",  # 그룹별 색상
+        text="Mean",
+        hover_data={"Group": True, "N": True, "Mean": True, "SD": True},
+        color_discrete_sequence=color_seq,
+        title=f"{ITEM_LABELS[item]}: 그룹별 평균 (Mean)"
+    )
+
+    fig.update_traces(
+        texttemplate="%{text:.2f}",
+        textposition="outside",
+        cliponaxis=False
+    )
+
+    fig.update_layout(
+        xaxis_title=group_by,
+        yaxis_title="Mean (1–6)",
+        showlegend=False,  # 범례 필요하면 True
+        margin=dict(l=20, r=20, t=70, b=20)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.caption("막대는 그룹별 평균(Mean)을 의미합니다. 아래 표에서 표본 수(N)와 표준편차(SD)도 함께 확인하세요.")
+    st.dataframe(g, use_container_width=True, hide_index=True)
