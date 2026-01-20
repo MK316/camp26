@@ -116,13 +116,25 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
+    
     # -------------------------
-    # (2) Pie chart
-    # -------------------------
-    # -------------------------
-    # (2) Pie chart (라벨을 원 밖으로)
+    # (2) Pie chart (밖에 라벨 + 리더라인 + 크기 조정 + 팔레트 선택)
     # -------------------------
     st.subheader("🧩 파이차트")
+    
+    # ✅ 팔레트 선택 (드랍박스)
+    palette = st.selectbox(
+        "색상 팔레트 선택 (파이/바 공통)",
+        ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
+        index=0,
+        key=f"{col}_palette_pie"
+    )
+    color_seq = getattr(px.colors.qualitative, palette, px.colors.qualitative.Plotly)
+    
+    # ✅ 옵션별 color_map 만들기 (항목마다 색 다르게)
+    opts_in_view = summ["보기"].tolist()
+    color_map = {opt: color_seq[i % len(color_seq)] for i, opt in enumerate(opts_in_view)}
+    
     pie_df = summ[summ["빈도"] > 0].copy()
     
     if pie_df.empty:
@@ -137,24 +149,28 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
             title=f"{label} 응답 비중(빈도 기준)"
         )
     
-        # ✅ 라벨을 원 밖으로 + 리더라인(선) 연결
+        # ✅ 파이를 “좀 더 작게”: domain 축소 + 도넛으로 리더라인 공간 확보
         fig_pie.update_traces(
+            hole=0.25,  # 도넛(리더라인/텍스트 공간 확보)
             textposition="outside",
             textinfo="label+percent",
-            # 퍼센트 표시 형식(원하면)
-            # texttemplate="%{label}<br>%{percent:.1%}",
-            pull=[0] * len(pie_df),   # 조각을 당기지 않되(0), 리더라인이 자연스럽게 유지됨
-            insidetextorientation="auto"
+            textfont_size=16,  # ✅ 텍스트 크게
+            insidetextorientation="auto",
+            # 리더라인이 잘 보이도록(조각 약간 당김)
+            pull=0.02
         )
     
-        # ✅ 글씨가 너무 작아지지 않게/겹치면 숨김(옵션)
+        # ✅ 잘림 방지: margin 크게 + 파이 도메인 축소(중앙에 작게 배치)
         fig_pie.update_layout(
-            height=560,
-            margin=dict(l=10, r=10, t=60, b=10),
+            height=520,
+            margin=dict(l=40, r=40, t=70, b=90),   # ✅ 아래(b) 크게
             showlegend=False,
-            uniformtext_minsize=11,
-            uniformtext_mode="hide",
+            uniformtext_minsize=14,
+            uniformtext_mode="show",               # ✅ 가능한 한 보여주기
         )
+    
+        # ✅ 파이 자체를 화면 중앙에 “작게” (domain 조절)
+        fig_pie.update_traces(domain=dict(x=[0.05, 0.95], y=[0.12, 0.92]))
     
         st.plotly_chart(fig_pie, use_container_width=True)
 
