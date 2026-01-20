@@ -42,7 +42,7 @@ def load_data(url: str) -> pd.DataFrame:
 
     return df
 
-st.title("설문 결과 개요 (Overview)")
+st.markdown("#### 1. 설문 결과 개요 (Overview)")
 df = load_data(CSV_URL)
 
 # 컬럼 존재 확인
