@@ -164,26 +164,49 @@ def render_multi(col: str, other_col: str | None):
 
     st.metric("해당 문항 응답자 수 (N)", f"{n_resp:,}")
 
-    # 그래프(가로 막대)
+    # ✅ 1) 비율 기준 내림차순 정렬(많은 항목이 먼저)
+    summ_sorted = summ.sort_values(["응답자비율(%)", "옵션"], ascending=[False, True]).copy()
+
+    # ✅ 2) 팔레트 선택(옵션별 색상)
+    palette = st.selectbox(
+        "색상 팔레트 선택",
+        ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"],
+        index=0,
+        key=f"palette_{col}",
+        help="옵션(항목)별 막대 색상을 바꿉니다."
+    )
+    color_seq = getattr(px.colors.qualitative, palette, px.colors.qualitative.Plotly)
+
+    # ✅ 옵션별로 고유 색을 주기 위해 color="옵션"
     fig = px.bar(
-        summ,
+        summ_sorted,
         x="응답자비율(%)",
         y="옵션",
         orientation="h",
+        color="옵션",  # ✅ 항목별 색상
         text="응답자비율(%)",
+        color_discrete_sequence=color_seq,
         title="선택 비율 (응답자 기준 %)"
     )
-    fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
+
+    fig.update_traces(
+        texttemplate="%{text:.1f}%",
+        textposition="outside",
+        cliponaxis=False
+    )
+
     fig.update_layout(
         height=520,
         margin=dict(l=10, r=10, t=60, b=10),
         xaxis_title="응답자 비율(%)",
-        yaxis_title=""
+        yaxis_title="",
+        showlegend=False,  # ✅ 항목이 y축에 다 나오므로 범례는 보통 숨김
     )
+
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("옵션별 빈도표")
-    st.dataframe(summ, use_container_width=True, hide_index=True)
+    st.subheader("옵션별 빈도표 (정렬: 비율 내림차순)")
+    st.dataframe(summ_sorted, use_container_width=True, hide_index=True)
 
     # 기타 서술
     if other_col and other_col in fdf.columns:
@@ -194,7 +217,11 @@ def render_multi(col: str, other_col: str | None):
         if other.empty:
             st.info("기타 서술 응답이 없습니다.")
         else:
-            st.dataframe(pd.DataFrame({"기타 응답": other}).head(200), use_container_width=True, hide_index=True)
+            st.dataframe(
+                pd.DataFrame({"기타 응답": other}).head(200),
+                use_container_width=True,
+                hide_index=True
+            )
 
 
 # =========================
