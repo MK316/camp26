@@ -107,6 +107,7 @@ with tab2:
 
 with tab3:
     st.subheader("문항별 기술통계")
+    st.caption("📌 왼쪽 메뉴에서 그룹에 대한 필터(영역, 학과, 학년 등)를 선택하면 세부 그룹별 기술통계를 보실 수 있습니다")
     desc = fdf[LIKERT_ITEMS].describe().T
     desc = desc.rename(columns={"50%": "median"})
     desc_out = desc[["count","mean","std","min","median","max"]].round(3)
