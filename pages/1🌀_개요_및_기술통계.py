@@ -80,27 +80,36 @@ col1.metric("표본 수 (N)", f"{len(fdf):,}")
 col2.metric("선택 Field_Group", f"{len(fg):,}")
 col3.metric("선택 Academic_Field", f"{len(af):,}")
 
-st.subheader("🌱 문항 안내 (Item Guide): 공통 문항 12개")
-guide_df = pd.DataFrame({
-    "코드 (Code)": LIKERT_ITEMS,
-    "문항명 (Korean Label)": [ITEM_LABELS[c] for c in LIKERT_ITEMS]
-})
-st.dataframe(guide_df, use_container_width=True, hide_index=True)
-
-st.subheader("🌱 데이터 미리보기 (Data Preview)")
-# 미리보기에서도 문항명 보기 좋게 rename
-preview_cols = META_COLS + LIKERT_ITEMS
-preview_df = fdf[preview_cols].rename(columns=ITEM_LABELS)
-st.dataframe(preview_df.head(30), use_container_width=True)
-
 st.caption("결측치(Missing)는 없음.")
 
-st.subheader("🌱 기술통계 (Descriptive Statistics)")
-desc = fdf[LIKERT_ITEMS].describe().T
-desc = desc.rename(columns={"50%": "median"})
-desc_out = desc[["count","mean","std","min","median","max"]].round(3)
-desc_out.columns = ["N", "Mean", "SD", "Min", "Median", "Max"]
+# -----------------------------
+# Tabs
+# -----------------------------
+tab1, tab2, tab3 = st.tabs([
+    "🌱 문항 안내 (Item Guide)",
+    "🌱 데이터 미리보기 (Data Preview)",
+    "🌱 기술통계 (Descriptive Statistics)"
+])
 
-# 기술통계 표에서도 문항명 rename
-desc_out = desc_out.rename(index=ITEM_LABELS)
-st.dataframe(desc_out, use_container_width=True)
+with tab1:
+    st.subheader("공통 문항 12개")
+    guide_df = pd.DataFrame({
+        "코드 (Code)": LIKERT_ITEMS,
+        "문항명 (Korean Label)": [ITEM_LABELS[c] for c in LIKERT_ITEMS]
+    })
+    st.dataframe(guide_df, use_container_width=True, hide_index=True)
+
+with tab2:
+    st.subheader("필터 적용 후 상위 30행")
+    preview_cols = META_COLS + LIKERT_ITEMS
+    preview_df = fdf[preview_cols].rename(columns=ITEM_LABELS)
+    st.dataframe(preview_df.head(30), use_container_width=True)
+
+with tab3:
+    st.subheader("문항별 기술통계")
+    desc = fdf[LIKERT_ITEMS].describe().T
+    desc = desc.rename(columns={"50%": "median"})
+    desc_out = desc[["count","mean","std","min","median","max"]].round(3)
+    desc_out.columns = ["N", "Mean", "SD", "Min", "Median", "Max"]
+    desc_out = desc_out.rename(index=ITEM_LABELS)
+    st.dataframe(desc_out, use_container_width=True)
