@@ -25,6 +25,6 @@ st.markdown("""
     """)
 
 
-st.info("데이터는 GitHub CSV에서 불러옵니다. (캐시 적용)")
+st.info("데이터는 GitHub CSV에서 불러옵니다. (설문 데이터가 업데이트되는 경우 잠시 앱이 불안정할 수 있습니다.)")
 
 st.caption("5 PM, Jan. 20")
