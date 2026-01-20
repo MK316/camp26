@@ -220,10 +220,26 @@ if show_raw:
     show_df = fdf[META_COLS + [COL_E1, COL_E2]].copy().rename(columns=DISPLAY_LABELS)
     st.dataframe(show_df.head(30), use_container_width=True)
 
+
+# ---- 탭 만들기 전, 공통 팔레트 선택 (한 번만) ----
+PALETTES = ["Plotly", "D3", "G10", "T10", "Alphabet", "Dark24", "Set2", "Pastel"]
+
+st.subheader("🎨 색상 설정")
+palette = st.selectbox(
+    "색상 팔레트 (Bar + Pie 공통)",
+    PALETTES,
+    index=0,
+    key="palette_global"
+)
+
 tab1, tab2 = st.tabs([DISPLAY_LABELS[COL_E1], DISPLAY_LABELS[COL_E2]])
 
 with tab1:
     render_single(COL_E1, fdf, palette)
+
+with tab2:
+    render_single(COL_E2, fdf, palette)
+
 
 with tab2:
     render_single(COL_E2, fdf, palette)
