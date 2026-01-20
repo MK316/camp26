@@ -12,7 +12,8 @@ META_COLS = ["Field_Group", "Academic_Field", "Year_Level", "Year_Original"]
 @st.cache_data(show_spinner=False)
 def load_data(url: str) -> pd.DataFrame:
     df = pd.read_csv(url)
-    # 안전장치: 문자열 컬럼 정리
+
+    # 문자열 컬럼 정리
     for c in ["Field_Group", "Academic_Field", "Year_Level"]:
         if c in df.columns:
             df[c] = df[c].astype(str).str.strip()
@@ -24,7 +25,7 @@ def load_data(url: str) -> pd.DataFrame:
 
     return df
 
-st.title("Overview")
+st.title("개요 (Overview)")
 df = load_data(CSV_URL)
 
 # 컬럼 존재 확인
@@ -33,13 +34,23 @@ if missing_cols:
     st.error(f"CSV에 다음 컬럼이 없습니다: {missing_cols}")
     st.stop()
 
-st.caption("필터는 다른 페이지에서도 동일한 방식으로 제공됩니다.")
-
 with st.sidebar:
-    st.header("Filters")
-    fg = st.multiselect("Field_Group", sorted(df["Field_Group"].dropna().unique().tolist()), default=sorted(df["Field_Group"].dropna().unique().tolist()))
-    yl = st.multiselect("Year_Level", sorted(df["Year_Level"].dropna().unique().tolist()), default=sorted(df["Year_Level"].dropna().unique().tolist()))
-    af = st.multiselect("Academic_Field", sorted(df["Academic_Field"].dropna().unique().tolist()), default=sorted(df["Academic_Field"].dropna().unique().tolist()))
+    st.header("필터 (Filters)")
+    fg = st.multiselect(
+        "Field_Group",
+        sorted(df["Field_Group"].dropna().unique().tolist()),
+        default=sorted(df["Field_Group"].dropna().unique().tolist())
+    )
+    yl = st.multiselect(
+        "Year_Level",
+        sorted(df["Year_Level"].dropna().unique().tolist()),
+        default=sorted(df["Year_Level"].dropna().unique().tolist())
+    )
+    af = st.multiselect(
+        "Academic_Field",
+        sorted(df["Academic_Field"].dropna().unique().tolist()),
+        default=sorted(df["Academic_Field"].dropna().unique().tolist())
+    )
 
 fdf = df[
     df["Field_Group"].isin(fg) &
@@ -48,19 +59,20 @@ fdf = df[
 ].copy()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Rows (filtered)", f"{len(fdf):,}")
-col2.metric("Field_Group (selected)", f"{len(fg):,}")
-col3.metric("Academic_Field (selected)", f"{len(af):,}")
+col1.metric("표본 수 (N)", f"{len(fdf):,}")
+col2.metric("선택 Field_Group", f"{len(fg):,}")
+col3.metric("선택 Academic_Field", f"{len(af):,}")
 
-st.subheader("Data Preview")
+st.subheader("데이터 미리보기 (Data Preview)")
 st.dataframe(fdf.head(30), use_container_width=True)
 
-st.subheader("Missingness (Q01–Q12)")
-miss = fdf[LIKERT_ITEMS].isna().sum().to_frame("missing_count")
-miss["missing_rate"] = (miss["missing_count"] / len(fdf)).round(4)
-st.dataframe(miss, use_container_width=True)
+# 결측 관련: 표 없이 캡션만
+st.caption("결측치(Missing)는 없다고 가정하고 분석을 진행합니다.")
 
-st.subheader("Descriptive Stats (Q01–Q12)")
+# 기술통계 표 (결측 표 자리 대체)
+st.subheader("기술통계 (Descriptive Statistics)")
 desc = fdf[LIKERT_ITEMS].describe().T
 desc = desc.rename(columns={"50%": "median"})
-st.dataframe(desc[["count","mean","std","min","median","max"]].round(3), use_container_width=True)
+desc_out = desc[["count","mean","std","min","median","max"]].round(3)
+desc_out.columns = ["N", "Mean", "SD", "Min", "Median", "Max"]
+st.dataframe(desc_out, use_container_width=True)
