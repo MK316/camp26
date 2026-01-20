@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 def main():
-    st.caption("💙 AI-X Board: Padlet")
+    st.caption("💙 Project Board: Padlet")
     st.write("➡️ Click the '+' sign to write.")
     # Padlet embed URL (you need to replace this with your actual Padlet embed URL)
     padlet_url = "https://padlet.com/mirankim316/bootcamp26"
