@@ -119,8 +119,12 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
     # -------------------------
     # (2) Pie chart
     # -------------------------
+    # -------------------------
+    # (2) Pie chart (라벨을 원 밖으로)
+    # -------------------------
     st.subheader("🧩 파이차트")
     pie_df = summ[summ["빈도"] > 0].copy()
+    
     if pie_df.empty:
         st.info("파이차트를 만들 유효 응답이 없습니다.")
     else:
@@ -132,19 +136,28 @@ def render_single(col: str, fdf: pd.DataFrame, palette_name: str):
             color_discrete_map=color_map,
             title=f"{label} 응답 비중(빈도 기준)"
         )
-        # 퍼센트+라벨 표시(겹치면 자동 줄어듦)
-        fig_pie.update_traces(textinfo="percent+label")
-        fig_pie.update_layout(
-            height=520,
-            margin=dict(l=10, r=10, t=60, b=10)
+    
+        # ✅ 라벨을 원 밖으로 + 리더라인(선) 연결
+        fig_pie.update_traces(
+            textposition="outside",
+            textinfo="label+percent",
+            # 퍼센트 표시 형식(원하면)
+            # texttemplate="%{label}<br>%{percent:.1%}",
+            pull=[0] * len(pie_df),   # 조각을 당기지 않되(0), 리더라인이 자연스럽게 유지됨
+            insidetextorientation="auto"
         )
+    
+        # ✅ 글씨가 너무 작아지지 않게/겹치면 숨김(옵션)
+        fig_pie.update_layout(
+            height=560,
+            margin=dict(l=10, r=10, t=60, b=10),
+            showlegend=False,
+            uniformtext_minsize=11,
+            uniformtext_mode="hide",
+        )
+    
         st.plotly_chart(fig_pie, use_container_width=True)
 
-    # -------------------------
-    # table
-    # -------------------------
-    st.subheader("빈도표")
-    st.dataframe(summ, use_container_width=True, hide_index=True)
 
 
 # =========================
