@@ -327,22 +327,41 @@ with tab4:
     # (A) 키워드 빈도
     st.subheader("🔎 전체 상위 키워드")
     top_n = st.slider("Top 키워드 개수", 10, 120, 40, 5, key="edu_e4_topn")
-
+    
     if not all_tokens:
         st.info("키워드를 추출할 텍스트가 충분하지 않습니다.")
     else:
         freq = Counter(all_tokens)
         freq_df = pd.DataFrame(freq.most_common(top_n), columns=["keyword", "count"])
+    
+        # ✅ 가로=키워드, 세로=빈도 (세로 막대)
         fig_kw = px.bar(
-            freq_df.sort_values("count", ascending=True),
-            x="count", y="keyword",
-            orientation="h",
+            freq_df,
+            x="keyword",
+            y="count",
+            text="count",
             title=f"전체 상위 {top_n}개 키워드"
         )
-        fig_kw.update_layout(height=680, margin=dict(l=20, r=20, t=60, b=20),
-                             xaxis_title="빈도", yaxis_title="키워드")
+    
+        # ✅ 라벨(키워드) 전체 표시 강제 + 가로 길게/세로 짧게
+        fig_kw.update_traces(textposition="outside", cliponaxis=False)
+        fig_kw.update_xaxes(
+            tickangle=-45,
+            tickmode="array",              # ✅ 자동 생략 방지
+            tickvals=freq_df["keyword"],   # ✅ 모든 키워드 라벨 표시
+            automargin=True
+        )
+        fig_kw.update_layout(
+            height=420,                    # ✅ 세로 짧게
+            margin=dict(l=20, r=20, t=60, b=150),  # ✅ 아래 여백 크게(라벨 공간)
+            xaxis_title="키워드",
+            yaxis_title="빈도",
+            showlegend=False
+        )
+    
         st.plotly_chart(fig_kw, use_container_width=True)
         st.dataframe(freq_df, use_container_width=True, hide_index=True)
+
 
     # (B) 그룹별 키워드 비교
     st.subheader("👥 그룹별 키워드 비교")
