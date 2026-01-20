@@ -129,10 +129,37 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.subheader(f"{ITEM_LABELS[item]}: 응답 분포(%)")
 
-    # % 막대 그래프용: index=likert, value=percent
-    st.bar_chart(counts.set_index("likert")["percent"])
+    # likert를 문자열로 만들어서 "1~6 범주형"으로 고정
+    plot_df = counts.copy()
+    plot_df["likert"] = plot_df["likert"].astype(str)
+
+    fig_dist = px.bar(
+        plot_df,
+        x="likert",
+        y="percent",
+        text="percent",
+        title="리커트 응답 비율(%)"
+    )
+
+    fig_dist.update_traces(
+        texttemplate="%{text:.1f}%",
+        textposition="outside",
+        cliponaxis=False
+    )
+
+    fig_dist.update_layout(
+        xaxis_title="리커트 값 (1–6)",
+        yaxis_title="비율(%)",
+        xaxis=dict(type="category"),   # ✅ 1~6 간격을 확실히 벌림
+        bargap=0.25,                   # ✅ 막대 간격
+        height=520,                    # ✅ 세로 길이 확보 (가장 중요)
+        margin=dict(l=40, r=20, t=60, b=40)
+    )
+
+    st.plotly_chart(fig_dist, use_container_width=True)
 
     st.caption("그래프는 각 응답값(1–6)의 비율(%)을 보여줍니다.")
+
 
 with tab2:
     st.subheader(f"{ITEM_LABELS[item]}: 핵심 요약")
