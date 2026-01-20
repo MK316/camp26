@@ -26,7 +26,7 @@ ITEM_LABELS = {
 }
 
 FIELD_GROUP_LABELS = {
-    "ECS": "공대-컴퓨터 (ECS)",
+    "ECS": "(IT)공대-컴퓨터 (ECS)",
     "Hum": "인문 (Humanities)",
     "Edu": "사범 (Education)"
 }
