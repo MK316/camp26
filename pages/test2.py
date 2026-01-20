@@ -341,31 +341,31 @@ with tab4:
 
 
     def tokenize_ko_basic(text: str) -> list[str]:
-    # 한글/영문/숫자만 남기기
-    t = re.sub(r"[^0-9A-Za-z가-힣\s]", " ", str(text))
-    t = re.sub(r"\s+", " ", t).strip()
-    if not t:
-        return []
+        # 한글/영문/숫자만 남기기
+        t = re.sub(r"[^0-9A-Za-z가-힣\s]", " ", str(text))
+        t = re.sub(r"\s+", " ", t).strip()
+        if not t:
+            return []
 
-    toks = []
-    for w in t.split(" "):
-        w = w.strip()
-        if not w:
-            continue
-
-        # ✅ 조사/어미 아주 간단 제거(형태소 분석기 없이도 효과 큼)
-        w = re.sub(r"(은|는|이|가|을|를|에|에서|으로|로|와|과|도|만|까지|부터|에게|한테|보다|처럼|같이|의)$", "", w)
-
-        # ✅ 길이 조건 완화: 1글자도 일부 허용(단, 의미 없는 1글자 제거)
-        if len(w) == 1 and w not in {"AI", "앱", "코딩"}:
-            continue
-
-        if w in STOP:
-            continue
-
-        toks.append(w)
-
-    return toks
+        toks = []
+        for w in t.split(" "):
+            w = w.strip()
+            if not w:
+                continue
+    
+            # ✅ 조사/어미 아주 간단 제거(형태소 분석기 없이도 효과 큼)
+            w = re.sub(r"(은|는|이|가|을|를|에|에서|으로|로|와|과|도|만|까지|부터|에게|한테|보다|처럼|같이|의)$", "", w)
+    
+            # ✅ 길이 조건 완화: 1글자도 일부 허용(단, 의미 없는 1글자 제거)
+            if len(w) == 1 and w not in {"AI", "앱", "코딩"}:
+                continue
+    
+            if w in STOP:
+                continue
+    
+            toks.append(w)
+    
+        return toks
 
     # 응답별 토큰(네트워크에 필요)
     doc_tokens = [tokenize_ko_basic(x) for x in open_s.tolist()]
