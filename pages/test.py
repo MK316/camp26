@@ -212,28 +212,38 @@ if missing:
     st.error(f"CSV에 다음 컬럼이 없습니다: {missing}")
     st.stop()
 
-# ECS만
-ecs_df = df[df["Field_Group"].astype(str).str.strip().eq("ECS")].copy()
-if ecs_df.empty:
-    st.warning("ECS(Field_Group='ECS') 데이터가 없습니다. CSV를 확인해주세요.")
-    st.stop()
+# ✅ 이 파일은 이미 ECS 데이터라고 가정 (Field_Group 값이 'ECS'가 아닐 수 있음)
+ecs_df = df.copy()
 
 with st.sidebar:
     st.header("필터 (Filters)")
+
+    # (1) 학과/전공(Field_Group) 필터: 한글명이 들어 있으니 그대로 보여주기
+    all_fg = sorted(ecs_df["Field_Group"].dropna().astype(str).unique().tolist())
+    fg = st.multiselect("학과/전공 (Field_Group)", all_fg, default=all_fg)
+
+    # (2) 학년 필터
     all_yl = sorted(ecs_df["Year_Level"].dropna().astype(str).unique().tolist())
-    yl = st.multiselect("Year_Level", all_yl, default=all_yl)
+    yl = st.multiselect("학년 (Year_Level)", all_yl, default=all_yl)
 
     st.divider()
     show_raw = st.checkbox("원자료 일부 보기", value=False)
 
-fdf = ecs_df[ecs_df["Year_Level"].isin(yl)].copy()
+# ✅ 선택 필터 적용
+fdf = ecs_df[
+    ecs_df["Field_Group"].isin(fg) &
+    ecs_df["Year_Level"].isin(yl)
+].copy()
 
-c1, c2 = st.columns(2)
-c1.metric("표본 수 (ECS N)", f"{len(fdf):,}")
-c2.metric("원 데이터 전체(ECS) N", f"{len(ecs_df):,}")
+# ✅ 표본 정보
+c1, c2, c3 = st.columns(3)
+c1.metric("표본 수 (현재 필터 N)", f"{len(fdf):,}")
+c2.metric("선택 학과/전공 수", f"{len(fg):,}")
+c3.metric("원 데이터 전체 N", f"{len(ecs_df):,}")
 
+# ✅ 미리보기
 if show_raw:
-    st.subheader("데이터 미리보기 (ECS)")
+    st.subheader("데이터 미리보기")
     cols = META_COLS + [COL_B1, COL_B1O, COL_B2, COL_B2O, COL_B3, COL_B3O, COL_B4]
     show_df = fdf[cols].copy().rename(columns=DISPLAY_LABELS)
     st.dataframe(show_df.head(30), use_container_width=True)
