@@ -100,18 +100,6 @@ def load_data(url: str) -> pd.DataFrame:
 
     return df
     
-def get_korean_font_path() -> str | None:
-    candidates = [
-        "assets/NanumGothic.ttf",
-        "assets/NanumSquareRoundB.ttf",
-        "assets/Pretendard-Regular.ttf",
-        "assets/PretendardVariable.ttf",
-        "assets/AppleSDGothicNeo.ttf",
-    ]
-    for p in candidates:
-        if os.path.exists(p):
-            return p
-    return None
 
 def clean_text(s: str) -> str:
     if not isinstance(s, str):
@@ -545,35 +533,47 @@ with tab4:
     # ---------------------------
     # (F) 워드클라우드 (가능하면)
     # ---------------------------
+    # ---------------------------
+    # (F) 워드클라우드 (가능하면)
+    # ---------------------------
     st.subheader("☁️ 워드클라우드 (가능한 경우)")
-    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. 한글 폰트도 필요합니다.")
-    
-    try:
-        from wordcloud import WordCloud
-        import matplotlib.pyplot as plt
-    
-        # 🎯 레포 assets 폴더의 폰트 경로
-        font_path = "assets/NanumGothic-Regular.ttf"
-    
-        # 워드클라우드를 만들 키워드 dict
-        freq_dict = dict(zip(freq["keyword"], freq["count"]))
-    
-        wc = WordCloud(
-            font_path=font_path,
-            width=1400,
-            height=600,
-            background_color="white",
-            prefer_horizontal=0.9
-        ).generate_from_frequencies(freq_dict)
-    
-        fig, ax = plt.subplots(figsize=(14, 6))
-        ax.imshow(wc, interpolation="bilinear")
-        ax.axis("off")
-        st.pyplot(fig, clear_figure=True)
-    
-    except ModuleNotFoundError:
-        st.info("wordcloud 패키지가 없어 워드클라우드를 표시할 수 없습니다. requirements.txt에 wordcloud를 추가하면 됩니다.")
-    except FileNotFoundError:
-        st.error("폰트 파일을 찾을 수 없습니다. assets/NanumGothic-Regular.ttf 경로를 확인하세요.")
+    st.caption("서버에 wordcloud 패키지가 없으면 자동으로 건너뜁니다. 한글 폰트(assets/NanumGothic-Regular.ttf)가 필요합니다.")
 
+    # ✅ 워드클라우드에 사용할 빈도표를 안전하게 준비
+    # (C)에서 all_tokens가 없으면 freq_df가 만들어지지 않을 수 있으니 여기서 보장
+    if len(all_tokens) == 0:
+        st.info("워드클라우드를 만들 키워드가 없습니다. (현재 필터 조건에서 토큰이 추출되지 않음)")
+    else:
+        # top_n 슬라이더 값을 그대로 사용 (이미 위에서 top_n 있음)
+        freq_wc = Counter(all_tokens)
+        freq_df_wc = pd.DataFrame(freq_wc.most_common(top_n), columns=["keyword", "count"])
+
+        try:
+            from wordcloud import WordCloud
+            import matplotlib.pyplot as plt
+
+            font_path = "assets/NanumGothic-Regular.ttf"
+
+            # ✅ 여기서 freq_dict를 확실히 만든다 (freq 변수에 의존 X)
+            freq_dict = dict(zip(freq_df_wc["keyword"], freq_df_wc["count"]))
+
+            wc = WordCloud(
+                font_path=font_path,
+                width=1400,
+                height=600,
+                background_color="white",
+                prefer_horizontal=0.9
+            ).generate_from_frequencies(freq_dict)
+
+            fig, ax = plt.subplots(figsize=(14, 6))
+            ax.imshow(wc, interpolation="bilinear")
+            ax.axis("off")
+            st.pyplot(fig, clear_figure=True)
+
+        except ModuleNotFoundError:
+            st.info("wordcloud 패키지가 없어 워드클라우드를 표시할 수 없습니다. requirements.txt에 wordcloud를 추가하면 됩니다.")
+        except FileNotFoundError:
+            st.error("폰트 파일을 찾을 수 없습니다. assets/NanumGothic-Regular.ttf 경로를 확인하세요.")
+        except Exception as e:
+            st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {e}")
 
