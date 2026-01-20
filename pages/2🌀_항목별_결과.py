@@ -221,7 +221,7 @@ with tab3:
 
         x_col = "Group_Label"
         color_col = "Group_Label"
-        xaxis_title = "영역 (Field_Group)"
+        xaxis_title = "전공 영역 (Field_Group)"
 
     elif group_by == "Year_Level":
         possible_orders = [
