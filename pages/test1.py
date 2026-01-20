@@ -143,19 +143,57 @@ def multiselect_summary(df: pd.DataFrame, col: str, option_order: list[str] | No
     out = out.sort_values(["응답자수", "옵션"], ascending=[False, True]).reset_index(drop=True)
     return out, n_resp
 
+def normalize_token_ko(w: str) -> str:
+    w = w.strip()
+    if not w:
+        return ""
+
+    # 1) AI 표기 통일: ai, A.I., Ai 등 -> AI
+    w_up = w.upper()
+    if w_up in {"AI", "A.I", "A.I.", "A I", "A-I"}:
+        w = "AI"
+
+    # 2) 'AI'에 붙은 조사 제거: AI의/AI를/AI가/AI는...
+    #   (AI 뒤에 한글 조사/어미가 붙어 있으면 AI만 남김)
+    w = re.sub(r"^(AI)(?:[가-힣]+)$", r"\1", w)
+
+    # 3) 한글(또는 AI)에 붙은 흔한 조사/어미 제거
+    #   예: 역량의 -> 역량, 교육을 -> 교육, 필요하다 -> 필요 (원하면 확장)
+    w = re.sub(
+        r"(AI|[가-힣]{2,})"
+        r"(?:은|는|이|가|을|를|의|에|에서|에게|께|으로|로|와|과|도|만|까지|부터|처럼|보다|마다|마다|라도|이나|나|든지|조차|마저|쯤|랑|하고|이며|인데|인데도|든)$",
+        r"\1",
+        w
+    )
+
+    return w
+
 
 def tokenize_ko_basic(text: str, stop: set[str]) -> list[str]:
-    t = re.sub(r"[^0-9A-Za-z가-힣\s]", " ", str(text))
+    t = str(text)
+
+    # (선택) AI 표기 사전 정리: "A.I." 같은 패턴도 AI로
+    t = re.sub(r"\bA\.?\s*I\.?\b", "AI", t, flags=re.IGNORECASE)
+
+    # 한글/영문/숫자만 남기기
+    t = re.sub(r"[^0-9A-Za-z가-힣\s]", " ", t)
     t = re.sub(r"\s+", " ", t).strip()
     if not t:
         return []
+
     toks = []
-    for w in t.split(" "):
-        if len(w) < 2:
+    for raw in t.split(" "):
+        w = normalize_token_ko(raw)
+
+        # 너무 짧은 토큰 제거 (AI는 예외로 남김)
+        if w != "AI" and len(w) < 2:
             continue
+
         if w in stop:
             continue
+
         toks.append(w)
+
     return toks
 
 
