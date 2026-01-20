@@ -28,3 +28,10 @@ st.markdown("""
 st.info("데이터는 GitHub CSV에서 불러옵니다. (설문 데이터가 업데이트되는 경우 잠시 앱이 불안정할 수 있습니다.)")
 
 st.caption("Data updated asof 6:30 PM, Jan. 20")
+
+# ---- 페이지 맨 아래 배너 이미지 ----
+st.divider()
+
+IMG_URL = "https://raw.githubusercontent.com/MK316/camp26/main/data/campbg.png"
+st.image(IMG_URL, use_container_width=True)
+
