@@ -12,7 +12,7 @@ import os
 # =========================
 st.set_page_config(page_title="ECS B-items", layout="wide")
 
-CSV_URL_B = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/IT-essay-116-01.csv"
+CSV_URL_B = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/IT-essay-120.csv"
 
 # ✅ 메타 컬럼(필수)
 META_COLS = ["Field_Group", "Year_Level"]
