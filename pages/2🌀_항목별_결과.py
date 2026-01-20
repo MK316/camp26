@@ -45,7 +45,8 @@ def likert_counts(series: pd.Series) -> pd.DataFrame:
     dfc["percent"] = (dfc["count"] / total * 100).round(2) if total > 0 else 0
     return dfc
 
-st.title("문항별 응답 분포 (Item Distributions)")
+st.markdown("#### 문항별 응답 분포 (Item Distributions)")
+st.caption("📌 왼쪽 메뉴에 선택 필터를 조정하세요. (영역별, 항목별, 학과별, 등등 가능)")
 df = load_data(CSV_URL)
 
 # ---- Sidebar filters ----
