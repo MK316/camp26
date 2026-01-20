@@ -8,33 +8,32 @@ import plotly.express as px
 # =========================
 st.set_page_config(page_title="ECS B-items", layout="wide")
 
-# ✅ 여기에 실제 CSV raw URL을 넣으세요
-CSV_URL_B = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/IT-essay-116.csv"
+CSV_URL_B = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/IT-essay-116-01.csv"
 
-# ✅ 실제 컬럼명(사용자 제공 이미지 기준)
+# ✅ 메타 컬럼(필수)
 META_COLS = ["Field_Group", "Year_Level"]
 
-COL_B1 = "B1. [교육과정·정책 개선 요구]"
-COL_B1_OTHER = "B1-기타"
-
-COL_B2 = "B2. [정서적 부담감의 원인]"
-COL_B2_OTHER = "B2-기타"
-
-COL_B3 = "B3. [학습 내용 선호]"
-COL_B3_OTHER = "B3-기타"       # CSV가 B3-기타면 이걸 쓰세요
-COL_B3_OTHER2 = "B2-기타2"     # CSV가 B2-기타2로 되어 있으면 이걸 쓰세요 (둘 중 존재하는 것 자동 선택)
-
-COL_B4 = "B4. [대학에 요구사항]"
+# ✅ 새 컬럼명(짧게)
+COL_B1 = "B1"
+COL_B1O = "B1O"
+COL_B2 = "B2"
+COL_B2O = "B2O"
+COL_B3 = "B3"
+COL_B3O = "B3O"
+COL_B4 = "B4"
 
 B_MULTI = [COL_B1, COL_B2, COL_B3]
 B_OPEN = COL_B4
 
-# ✅ 화면에 표시할 때는 [ ] 키워드 중심으로만
-B_KEYWORDS = {
-    COL_B1: "[교육과정·정책 개선 요구]",
-    COL_B2: "[정서적 부담감의 원인]",
-    COL_B3: "[학습 내용 선호]",
-    COL_B4: "[대학에 요구사항]",
+# ✅ 화면 표시용 라벨(한글 + [키워드] 포함)
+DISPLAY_LABELS = {
+    COL_B1: "B1. [교육과정·정책 개선 요구]",
+    COL_B2: "B2. [정서적 부담감의 원인]",
+    COL_B3: "B3. [학습 내용 선호]",
+    COL_B4: "B4. [대학에 요구사항]",
+    COL_B1O: "B1-기타 (서술)",
+    COL_B2O: "B2-기타 (서술)",
+    COL_B3O: "B3-기타 (서술)",
 }
 
 # =========================
@@ -90,8 +89,8 @@ def load_data(url: str) -> pd.DataFrame:
         if c in df.columns:
             df[c] = df[c].astype(str).str.strip()
 
-    # 모든 B문항은 문자열로 정리
-    for c in [COL_B1, COL_B1_OTHER, COL_B2, COL_B2_OTHER, COL_B3, COL_B3_OTHER, COL_B3_OTHER2, COL_B4]:
+    # B문항은 문자열로 정리
+    for c in [COL_B1, COL_B1O, COL_B2, COL_B2O, COL_B3, COL_B3O, COL_B4]:
         if c in df.columns:
             df[c] = df[c].astype(str).str.strip()
 
@@ -103,12 +102,14 @@ def clean_text(s: str) -> str:
         return ""
     return re.sub(r"\s+", " ", s).strip()
 
+
 def is_no_response(text: str) -> bool:
     t = clean_text(str(text)).lower()
     if t in {"", "nan", "none"}:
         return True
     t = re.sub(r"\s+", " ", t).strip()
     return t in {"no response", "noresponse", "n/a", "na"}
+
 
 def split_multiselect(text: str) -> list[str]:
     """
@@ -121,6 +122,7 @@ def split_multiselect(text: str) -> list[str]:
     t = t.replace("\n", ";").replace("•", ";")
     parts = re.split(r"[;,/|]+", t)
     return [p.strip() for p in parts if p.strip()]
+
 
 def multiselect_summary_fixed(df: pd.DataFrame, col: str, option_order: list[str]) -> tuple[pd.DataFrame, int]:
     """
@@ -141,20 +143,20 @@ def multiselect_summary_fixed(df: pd.DataFrame, col: str, option_order: list[str
     ex["choices"] = ex["choices"].astype(str).str.strip()
     ex = ex[ex["choices"] != ""]
 
-    # 설문 옵션과 완전 일치하는 것만 집계(옵션 외 문자열은 기타로 흡수할 수도 있음)
+    # 옵션 외 문자열은 "기타"로 흡수
     allowed = set(option_order)
     ex.loc[~ex["choices"].isin(allowed), "choices"] = "기타"
 
     grp = ex.drop_duplicates(subset=["__rid__", "choices"]).groupby("choices")["__rid__"].nunique()
 
-    # 0 포함 + 순서 고정
     out = pd.DataFrame({"옵션": option_order})
     out["응답자수"] = out["옵션"].map(grp).fillna(0).astype(int)
     out["응답자비율(%)"] = (out["응답자수"] / total_respondents * 100).round(2)
     return out, int(total_respondents)
 
+
 def render_multi(col: str, other_col: str | None):
-    st.markdown(f"#### {B_KEYWORDS.get(col, col)}")
+    st.markdown(f"#### {DISPLAY_LABELS.get(col, col)}")
     st.caption("복수선택 문항입니다. 그래프는 ‘응답자 기준 비율(%)’을 보여줍니다. (설문 옵션 목록 기준으로 0도 포함)")
 
     option_order = OPTIONS_MAP[col]
@@ -162,10 +164,9 @@ def render_multi(col: str, other_col: str | None):
 
     st.metric("해당 문항 응답자 수 (N)", f"{n_resp:,}")
 
-    # 그래프
-    plot_df = summ.copy()
+    # 그래프(가로 막대)
     fig = px.bar(
-        plot_df,
+        summ,
         x="응답자비율(%)",
         y="옵션",
         orientation="h",
@@ -186,7 +187,7 @@ def render_multi(col: str, other_col: str | None):
 
     # 기타 서술
     if other_col and other_col in fdf.columns:
-        st.subheader("기타 (서술) 응답")
+        st.subheader(DISPLAY_LABELS.get(other_col, "기타 (서술) 응답"))
         other = fdf[other_col].astype(str).map(clean_text)
         other = other[(other != "") & (~other.map(is_no_response))]
         st.caption(f"기타 서술 응답 수 = {len(other):,}")
@@ -195,16 +196,17 @@ def render_multi(col: str, other_col: str | None):
         else:
             st.dataframe(pd.DataFrame({"기타 응답": other}).head(200), use_container_width=True, hide_index=True)
 
+
 # =========================
 # UI
 # =========================
 st.markdown("### 🧩 공대-컴퓨터(ECS) 자유응답 문항 분석 (B1–B4)")
-st.caption("B1–B3: 복수선택 빈도(응답자 기준 %) + 기타 서술, B4: 주관식 원문 + 키워드(참고용).")
+st.caption("B1–B3: 복수선택 빈도(응답자 기준 %) + 기타 서술, B4: 주관식 원문 (No Response 제외).")
 
 df = load_data(CSV_URL_B)
 
 # 필수 컬럼 체크
-required = META_COLS + B_MULTI + [B_OPEN]
+required = META_COLS + B_MULTI + [COL_B1O, COL_B2O, COL_B3O, B_OPEN]
 missing = [c for c in required if c not in df.columns]
 if missing:
     st.error(f"CSV에 다음 컬럼이 없습니다: {missing}")
@@ -232,11 +234,11 @@ c2.metric("원 데이터 전체(ECS) N", f"{len(ecs_df):,}")
 
 if show_raw:
     st.subheader("데이터 미리보기 (ECS)")
-    candidate_cols = [COL_B1_OTHER, COL_B2_OTHER, COL_B3_OTHER, COL_B3_OTHER2]
-    cols = META_COLS + B_MULTI + [c for c in candidate_cols if c in fdf.columns] + [B_OPEN]
-    st.dataframe(fdf[cols].head(30), use_container_width=True)
+    cols = META_COLS + [COL_B1, COL_B1O, COL_B2, COL_B2O, COL_B3, COL_B3O, COL_B4]
+    show_df = fdf[cols].copy().rename(columns=DISPLAY_LABELS)
+    st.dataframe(show_df.head(30), use_container_width=True)
 
-# 탭
+# 탭(키워드 중심)
 tab1, tab2, tab3, tab4 = st.tabs([
     "B1 [교육과정·정책 개선 요구]",
     "B2 [정서적 부담감의 원인]",
@@ -245,35 +247,16 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 with tab1:
-    render_multi(COL_B1, COL_B1_OTHER if COL_B1_OTHER in fdf.columns else None)
+    render_multi(COL_B1, COL_B1O)
 
 with tab2:
-    render_multi(COL_B2, COL_B2_OTHER if COL_B2_OTHER in fdf.columns else None)
+    render_multi(COL_B2, COL_B2O)
 
 with tab3:
-    # B3 기타 컬럼은 파일마다 다를 수 있어 우선순위로 선택
-    b3_other = None
-    if COL_B3_OTHER in fdf.columns:
-        b3_other = COL_B3_OTHER
-    elif COL_B3_OTHER2 in fdf.columns:
-        b3_other = COL_B3_OTHER2
-    render_multi(COL_B3, b3_other)
+    render_multi(COL_B3, COL_B3O)
 
 with tab4:
-    st.markdown(f"#### {B_KEYWORDS.get(COL_B4, COL_B4)}")
+    st.markdown(f"#### {DISPLAY_LABELS.get(COL_B4, COL_B4)}")
     st.caption("주관식 문항입니다. 'No Response'는 제외됩니다.")
 
     open_s = fdf[COL_B4].astype(str).map(clean_text)
-    open_s = open_s[(open_s != "") & (~open_s.map(is_no_response))]
-
-    st.metric("주관식 응답 수 (N)", f"{len(open_s):,}")
-
-    if open_s.empty:
-        st.warning("주관식(B4) 응답이 없습니다.")
-    else:
-        st.subheader("주관식 원문 보기")
-        q = st.text_input("원문 검색(포함 검색)", value="")
-        view = open_s
-        if q.strip():
-            view = view[view.str.contains(q.strip(), na=False)]
-        st.dataframe(pd.DataFrame({"B4 응답": view}).head(400), use_container_width=True, hide_index=True)
