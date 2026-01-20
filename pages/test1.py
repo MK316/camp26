@@ -17,34 +17,23 @@ st.set_page_config(page_title="Education E-items (E1–E4)", layout="wide")
 # ✅ 사범 데이터 CSV raw URL로 바꾸세요
 CSV_URL_EDU = "https://raw.githubusercontent.com/MK316/camp26/refs/heads/main/data/Edu-essay123.csv"
 
-# ✅ 메타 컬럼
+
+# =========================
+# Columns (actual CSV)
+# =========================
 META_COLS = ["Academic_Field", "Year_Level", "Year_Original"]
 
-
-
-# ✅ 원본 컬럼명이 길어서, 실제 파일의 컬럼명과 정확히 매칭해야 합니다.
-# 아래 4개는 "CSV에 있는 실제 컬럼명" 그대로 넣어주세요.
-COL_E1_SRC = "1. [교육과정·정책 개선 요구]"""
-COL_E2_SRC = "2. [정서적 부담감의 원인]"
-COL_E3_SRC = "3. [학습 내용 선호]"
-COL_E4_SRC = "4. [주관식: 자유롭게 기술]" 
-
-
-
-# ✅ 앱 내부에서는 짧은 키로 다룹니다.
 COL_E1 = "E1"
 COL_E2 = "E2"
 COL_E3 = "E3"
 COL_E4 = "E4"
 
-COL_MAP = {
-    COL_E1_SRC: COL_E1,
-    COL_E2_SRC: COL_E2,
-    COL_E3_SRC: COL_E3,
-    COL_E4_SRC: COL_E4,
-}
+B_MULTI = [COL_E1, COL_E2, COL_E3]
+B_OPEN = COL_E4
 
-# ✅ 화면 표시 라벨: "E1 ~ + [키워드]" 형태
+# =========================
+# Display labels (shown on screen)
+# =========================
 DISPLAY_LABELS = {
     COL_E1: "E1. [교육과정·정책 개선 요구]",
     COL_E2: "E2. [정서적 부담감의 원인]",
@@ -52,7 +41,11 @@ DISPLAY_LABELS = {
     COL_E4: "E4. [주관식: 자유롭게 기술]",
     "Academic_Field": "학문 분야 (Academic_Field)",
     "Year_Level": "학년 (Year_Level)",
+    "Year_Original": "원 학년 표기 (Year_Original)",
 }
+
+
+
 
 # =========================================
 # (선택) 옵션 목록을 고정하고 싶다면 여기에 넣으세요.
