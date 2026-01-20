@@ -16,6 +16,14 @@ st.write(
 """
 )
 
+st.markdown("""
+    1. 🌀 개요 및 기술통계
+    2. 🌀 항목별 결과
+    3. 🌀 항목 상관분석
+    4. 📮 Padlet link (현 프로젝트 파일공유 공간)
+    """)
+
+
 st.info("데이터는 GitHub CSV에서 불러옵니다. (캐시 적용)")
 
 st.caption("5 PM, Jan. 20")
