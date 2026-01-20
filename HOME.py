@@ -18,7 +18,7 @@ st.write(
 )
 
 st.markdown("""
-    1. 🌀 개요 및 기술통계
+    1. 🌀 개요 및 기술통계 (data updated: N=330 => N=343)
     2. 🌀 항목별 결과
     3. 🌀 항목 상관분석
     4. 📮 Padlet link (현 프로젝트 파일공유 공간)
@@ -27,4 +27,4 @@ st.markdown("""
 
 st.info("데이터는 GitHub CSV에서 불러옵니다. (설문 데이터가 업데이트되는 경우 잠시 앱이 불안정할 수 있습니다.)")
 
-st.caption("5 PM, Jan. 20")
+st.caption("Data updated asof 6:30 PM, Jan. 20")
