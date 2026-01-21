@@ -181,6 +181,14 @@ with tab2:
         aspect="auto",
         title="문항 간 상관계수 (Pearson r)"
     )
-    fig2.update_layout(margin=dict(l=20, r=20, t=60, b=20))
-    st.plotly_chart(fig2, use_container_width=True)
 
+    # ✅ 텍스트(셀 안 숫자) + 축 글자 크기 2배 정도 확대
+    fig2.update_traces(textfont_size=24)  # 기존(기본값) 대비 크게
+    fig2.update_layout(
+        margin=dict(l=20, r=20, t=60, b=20),
+        title_font_size=28,
+        xaxis=dict(tickfont=dict(size=20)),
+        yaxis=dict(tickfont=dict(size=20))
+    )
+
+    st.plotly_chart(fig2, use_container_width=True)
